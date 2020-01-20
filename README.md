@@ -1,2 +1,2 @@
-# TradeGym
+# Tgym
 Gym for Trade
