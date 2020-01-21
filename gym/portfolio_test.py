@@ -173,7 +173,7 @@ class TestPortfolio(unittest.TestCase):
         p = Portfolio(
             buy_commission_rate=0.001,
             sell_commission_rate=0.0015, min_commission=5.0,
-            round_lot=100, print_orders=True)
+            round_lot=100)
         p.update_before_trade(divide_rate=1.0)
         self.assertEqual((-10010.0, 10.0, 1000),
                          p._submit_order(side="buy", price=10.0, volume=1000))

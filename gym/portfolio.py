@@ -12,8 +12,7 @@ class Portfolio:
     def __init__(self,
                  buy_commission_rate=0.001, sell_commission_rate=0.0015,
                  min_commission=5.0, round_lot=100,
-                 divide_rate_threshold=1.005, code="000001.SZ",
-                 print_orders=False):
+                 divide_rate_threshold=1.005, code="000001.SZ"):
         # 市值
         self.market_value = 0.0
         # 持仓量
@@ -52,7 +51,6 @@ class Portfolio:
         self.round_lot = round_lot
         self.divide_rate_threshold = divide_rate_threshold
         self.code = code
-        self.print_orders = print_orders
 
     def update_value_percent(self, total_value):
         """
@@ -136,9 +134,8 @@ class Portfolio:
         return cash_change, price, volume
 
     def _submit_order(self, side=None, price=None, volume=None):
-        if self.print_orders:
-            logging.debug("portfolio: submit_order %s, %4s, %5.2f, %6d" % (
-                self.code, side, price, volume))
+        logging.debug("portfolio: submit_order %s, %4s, %5.2f, %6d" % (
+            self.code, side, price, volume))
         if side == "sell":
             return self.sell(price=price, volume=volume)
         elif side == "buy":
