@@ -7,6 +7,7 @@ class Portfolio:
     """
     NOTE: 考虑到不同的类型的资产commission并不一样, 所以Portfolio需要commission相关的参
     数
+    divide_rate_threshold: 是否有拆分判断阀值
     """
 
     def __init__(self,
