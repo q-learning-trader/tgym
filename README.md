@@ -1,6 +1,6 @@
 # tgym
 
-基于[OpenAI Gym](https://gym.openai.com/)的程序化交易环境模拟器, 旨在为基于增强学习的 交易算法提供方便使用的环境
+基于[OpenAI Gym](https://gym.openai.com/)的程序化交易环境模拟器, 旨在为沪深A股基于增强学习的交易算法提供方便使用的环境
 
 ## 安装指南
 
