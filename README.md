@@ -38,5 +38,8 @@ pip install -e .
 
 ```
 export TUSHARE_TOKEN=YOUR_TOKEN
-python tgym/envs/simple_test.py
 ```
+
+实现        | 场景                                | 使用例子
+--------- | --------------------------------- | ---------------------------------
+simple.py | 日内T0，单支股票， action=[v_sell, v_buy] | `python tgym/envs/simple_test.py`
