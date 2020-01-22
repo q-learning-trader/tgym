@@ -1,11 +1,10 @@
 # -*- coding:utf-8 -*-
-import logging
 import os
 
 import pandas as pd
 import tushare as ts
 
-logger = logging.getLogger()
+from tgym.logger import logger
 
 
 class Market:

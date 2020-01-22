@@ -1,8 +1,11 @@
 # -*- coding:utf-8 -*-
 
+import random
+
 import gym
 import numpy as np
 
+from tgym.logger import logger
 from tgym.portfolio import Portfolio
 
 
@@ -15,7 +18,7 @@ class SimpleEnv(gym.Env):
         1. 先到最高价，然后再到最低价：与模拟环境一致
         2. 先到最低价，再到最高价，这里出价有两种情况
             有现金，则按最低价买进，与模拟环境一致
-            无现金(满仓)，模拟环境可以买卖，实盘交易时的成交状态就不一样
+            无现金(满仓)，模拟环境可以成交，实盘交易时的成交状态不一定可以成交
     """
 
     def __init__(self, market, investment=100000.0, look_back_days=10):
@@ -30,6 +33,8 @@ class SimpleEnv(gym.Env):
         self.code = market.codes[0]
         self.start = market.start
         self.end = market.end
+        self.look_back_days = look_back_days
+        self.investment = investment
         # 输入数据: 去除不复权数据 和复权因子
         self.input_size = len(market.codes_history[self.code].iloc[0]) - 10
         # 每一天放入state中的数据起始位置
@@ -54,9 +59,9 @@ class SimpleEnv(gym.Env):
         state 由两部分组成: 市场信息, 帐户信息(收益率, 持仓量)
         """
         equity_state = self.market.codes_history[
-            self.code].iloc[:, self.look_back_days]
+            self.code].iloc[:self.look_back_days].values
         portfolio_state = self.get_init_portfolio_state()
-        return np.concate((equity_state, portfolio_state), axis=1)
+        return np.concatenate((equity_state, portfolio_state), axis=1)
 
     def reset(self):
         # 当前时间
@@ -70,17 +75,44 @@ class SimpleEnv(gym.Env):
         # 当日订单集合
         self.info = {"orders": []}
         # 总权益
-        self.portfolio_value = self.invesment
+        self.portfolio_value = self.investment
         # 初始资金
-        self.starting_cash = self.invesment
+        self.starting_cash = self.investment
         # 可用资金
-        self.cash = self.invesment
+        self.cash = self.investment
         self.pre_cash = self.cash
 
         # 每只股的 portfolio
         self.portfolio = Portfolio(code=self.code)
         self.state = self.get_init_state()
         return self.state
+
+    def get_action_price(self, action):
+        pre_close = self.market.get_pre_close_price(
+            self.code, self.current_date)
+        [v_sell, v_buy] = action
+        # scale [-1, 1] to [-0.1, 0.1]
+        pct_sell, pct_buy = v_sell * 0.1, v_buy * 0.1
+        sell_price = round(pre_close * (1 + pct_sell), 2)
+        buy_price = round(pre_close * (1 + pct_buy))
+        return sell_price, buy_price
+
+    def do_action(self, action, pre_portfolio_value, only_update):
+        sell_price, buy_price = self.get_action_price(action)
+        divide_rate = self.market.get_divide_rate(self.code, self.current_date)
+        self.portfolio.update_before_trade(divide_rate)
+        if not only_update:
+            sell_cash_change, ok = self.sell(sell_price)
+            buy_cash_change, ok = self.buy(buy_price)
+            cash_change = buy_cash_change + sell_cash_change
+            logger.debug("do_action: time_id: %d, %s, cash_change: %.1f" % (
+                self.current_time_id, self.code, cash_change))
+
+        close_price = self.market.get_close_price(self.code, self.current_date)
+        self.portfolio.update_after_trade(
+            close_price=close_price,
+            cash_change=cash_change,
+            pre_portfolio_value=pre_portfolio_value)
 
     def _next_state(self):
         equity_state = self.market.codes_history[self.code][self.current_date]
@@ -93,5 +125,34 @@ class SimpleEnv(gym.Env):
         self.pre_cash = self.cash
         return state
 
-    def step(self, action):
-        pass
+    def step(self, action, only_update=False):
+        """
+        only_update为True时，表示buy_and_hold策略，可用于baseline策略
+        """
+        self.action = action
+        self.info = {"orders": []}
+        logger.debug("=" * 50 + "%s" % self.current_date + "=" * 50)
+        logger.debug("current_time_id: %d" % self.current_time_id)
+        logger.debug("step actions: %s" % str(action))
+
+        # 到最后一天
+        if self.current_date == self.end:
+            self.done = True
+
+        pre_portfolio_value = self.portfolio_value
+        self.do_action(action, pre_portfolio_value, only_update)
+        self.update_portfolio()
+        self.update_value_percent()
+        # 更新停牌信息，state中包含停牌信息
+        self.update_is_suspended()
+        self.state = self._next_state()
+        self.info = {
+            "orders": self.info["orders"],
+            "current_date": self.current_date,
+            "portfolio_value": round(self.portfolio_value, 1),
+            "daily_pnl": round(self.daily_pnl, 1),
+            "reward": self.reward}
+        return self.state, self.reward, self.done, self.info
+
+    def get_random_action(self):
+        return [random.uniform(-1, 1), random.uniform(-1, 1)]
