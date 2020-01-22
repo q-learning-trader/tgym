@@ -7,7 +7,7 @@ import unittest
 from simple import SimpleEnv
 from tgym.market import Market
 
-logging.root.setLevel(logging.DEBUG)
+logging.root.setLevel(logging.INFO)
 
 
 class TestSimple(unittest.TestCase):
@@ -43,7 +43,7 @@ class TestSimple(unittest.TestCase):
         while not done:
             # buy and hold, 持仓不动
             _, _, done, _ = self.env.step(action, only_update=True)
-        self.assertEqual(159412.4, self.env.portfolio_value)
+        self.assertEqual(158260.44, self.env.portfolio_value)
 
 
 if __name__ == '__main__':

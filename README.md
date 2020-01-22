@@ -34,4 +34,9 @@ pip install -e .
 
 **Examples**
 
-TODO
+设置 tushare token:
+
+```
+export TUSHARE_TOKEN=YOUR_TOKEN
+python tgym/envs/simple_test.py
+```
