@@ -157,8 +157,8 @@ class Market:
         if self.is_suspended(code, datestr):
             return ok, 0
         # 获取当天标的信息
-        [open, high, low, pct_change] = self.history_data[code].loc[
-            datestr, ["open", "high", "low", "pct_change"]]
+        [open, high, low, pct_change] = self.codes_history[code].loc[
+            datestr, ["open", "high", "low", "pct_chg"]]
         # 涨停封板, 无法买入
         if low == high and pct_change > self.top_pct_change:
             logger.debug(u"sell_check %s %s 涨停法买进" % (code, datestr))
@@ -177,8 +177,8 @@ class Market:
         if self.is_suspended(code, datestr):
             return ok, 0
         # 获取当天标的信息
-        [open, high, low, pct_change] = self.history_data[code].loc[
-            datestr, ["open", "high", "low", "pct_change"]]
+        [open, high, low, pct_change] = self.codes_history[code].loc[
+            datestr, ["open", "high", "low", "pct_chg"]]
         # 跌停封板， 不能卖出
         if low == high and pct_change < -self.top_pct_change:
             logger.debug(u"sell_check %s %s 跌停无法卖出" % (code, datestr))
@@ -191,3 +191,27 @@ class Market:
         if bid_price <= high:
             ok = True
             return ok, max(bid_price, low)
+
+    def get_pre_close_price(self, code, datestr):
+        if datestr in self.codes_history[code].index:
+            return self.codes_history[code].loc[datestr]["pre_close"]
+        # 如果当天停牌
+        df = self.codes_history[code]
+        df_ = df[df.index < datestr]
+        return df_.iloc[-1]["pre_close"]
+
+    def get_pre_adj_factor(self, code, datestr):
+        df = self.codes_history[code]
+        df_ = df[df.index < datestr]
+        return df_.iloc[-1]["adj_factor"]
+
+    def get_adj_factor(self, code, datestr):
+        if self.is_suspended(code=code, datestr=datestr):
+            return self.get_pre_adj_factor(code, datestr)
+        else:
+            return self.codes_history[code].loc[datestr]["adj_factor"]
+
+    def get_divide_rate(self, code, datestr):
+        pre_adj_factor = self.get_pre_adj_factor(code)
+        current_adj_factor = self.get_adj_factor(code, datestr)
+        return current_adj_factor / pre_adj_factor

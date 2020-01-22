@@ -41,6 +41,56 @@ class TestMarket(unittest.TestCase):
         self.assertFalse(self.m.is_suspended(code='000001.SZ',
                                              datestr='20191021'))
 
+    def test_buy_check(self):
+        code = "000001.SZ"
+        # is_suspended
+        ok, price = self.m.buy_check(code='', datestr='')
+        self.assertFalse(ok)
+        self.assertEqual(0, price)
+        datestr = "20191021"
+        # print(self.m.codes_history["000001.SZ"].loc[datestr])
+        # [high, low] = [16.97, 16.43]
+        # 买入竞价低于最低价，不能成交
+        ok, price = self.m.buy_check(code=code, datestr=datestr,
+                                     bid_price=11)
+        self.assertFalse(ok)
+
+        # 买入竞价在最低最高价之间， 可以成交
+        ok, price = self.m.buy_check(code=code, datestr=datestr,
+                                     bid_price=16.51)
+        self.assertTrue(ok)
+        self.assertEqual(16.51, price)
+
+        # 买入竞价高于最高介， 可以成交
+        ok, price = self.m.buy_check(code=code, datestr=datestr,
+                                     bid_price=17)
+        self.assertTrue(ok)
+        self.assertEqual(16.97, price)
+
+    def test_sell_check(self):
+        code = "000001.SZ"
+        # is_suspended
+        ok, price = self.m.sell_check(code='', datestr='')
+        self.assertFalse(ok)
+        self.assertEqual(0, price)
+        datestr = "20191021"
+        # [high, low] = [16.97, 16.43]
+        # 卖出入竞价高于最高价，不能成交
+        ok, price = self.m.sell_check(code=code, datestr=datestr,
+                                      bid_price=17)
+        self.assertFalse(ok)
+
+        # 买入竞价在最低最高价之间， 可以成交
+        ok, price = self.m.sell_check(code=code, datestr=datestr,
+                                      bid_price=16.51)
+        self.assertTrue(ok)
+        self.assertEqual(16.51, price)
+
+        # 卖出竞价低于最低价， 可以成交, 按最低价成交
+        ok, price = self.m.sell_check(code=code, datestr=datestr, bid_price=16)
+        self.assertTrue(ok)
+        self.assertEqual(16.43, price)
+
 
 if __name__ == '__main__':
     unittest.main()

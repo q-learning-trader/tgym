@@ -44,8 +44,8 @@ class SimpleEnv(gym.Env):
 
     def get_init_portfolio_state(self):
         # 初始持仓信息
-        one_day = np.array([self.daily_return,
-                            self.value_percent])
+        one_day = np.array([self.portfolio.daily_return,
+                            self.portfolio.value_percent])
         state = np.array([one_day] * self.look_back_days)
         return state
 
@@ -79,13 +79,19 @@ class SimpleEnv(gym.Env):
 
         # 每只股的 portfolio
         self.portfolio = Portfolio(code=self.code)
-        self.states = self.get_init_state()
-        return self.states
+        self.state = self.get_init_state()
+        return self.state
 
     def _next_state(self):
-        equity_state =
-        portfolio_state =
-
+        equity_state = self.market.codes_history[self.code][self.current_date]
+        portfolio_state = [self.portfolio.daily_return,
+                           self.portfolio.value_percent]
+        new_state = np.concatenate((equity_state, portfolio_state), axis=1)
+        state = np.concatenate((self.state[1:, :], new_state), axis=0)
+        self.current_time_id += 1
+        self.current_date = self.dates[self.current_time_id]
+        self.pre_cash = self.cash
+        return state
 
     def step(self, action):
         pass
