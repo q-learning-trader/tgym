@@ -41,7 +41,9 @@ class TestSimple(unittest.TestCase):
         self.env.reset()
         state, reward, done, info = self.env.step(action, only_update=False)
         while not done:
+            # buy and hold, 持仓不动
             _, _, done, _ = self.env.step(action, only_update=True)
+        self.assertEqual(159412.4, self.env.portfolio_value)
 
 
 if __name__ == '__main__':

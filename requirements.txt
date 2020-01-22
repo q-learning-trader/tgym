@@ -1,4 +1,5 @@
 pandas
 tushare
+gym
 lxml
 beautifulsoup4
