@@ -24,6 +24,7 @@ pip install tushare
 ```
 git clone https://github.com/iminders/tgym
 cd tgym
+pip install -r requirements.txt
 pip install -e .
 ```
 
