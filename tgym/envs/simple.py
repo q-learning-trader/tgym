@@ -67,7 +67,7 @@ class SimpleEnv(gym.Env):
         # 当前时间
         self.current_time_id = self._init_current_time_id()
         self.current_date = self.dates[self.current_time_id]
-        self.dones = False
+        self.done = False
         # 当日的回报
         self.reward = 0
         # 累计回报
@@ -81,6 +81,7 @@ class SimpleEnv(gym.Env):
         # 可用资金
         self.cash = self.investment
         self.pre_cash = self.cash
+        self.total_pnl = 0
 
         # 每只股的 portfolio
         self.portfolio = Portfolio(code=self.code)
@@ -90,17 +91,96 @@ class SimpleEnv(gym.Env):
     def get_action_price(self, action):
         pre_close = self.market.get_pre_close_price(
             self.code, self.current_date)
+        logger.debug("%s %s pre_close: %.2f" %
+                     (self.current_date, self.code, pre_close))
         [v_sell, v_buy] = action
         # scale [-1, 1] to [-0.1, 0.1]
         pct_sell, pct_buy = v_sell * 0.1, v_buy * 0.1
         sell_price = round(pre_close * (1 + pct_sell), 2)
-        buy_price = round(pre_close * (1 + pct_buy))
+        buy_price = round(pre_close * (1 + pct_buy), 2)
         return sell_price, buy_price
+
+    def sell(self, price):
+        logger.debug("sell %s, bid price: %.2f" % (self.code, price))
+        ok, price = self.market.sell_check(
+            code=self.code,
+            datestr=self.current_date,
+            bid_price=price)
+        if ok:
+            # 全仓卖出
+            cash_change, price, volume = self.portfolio.order_target_percent(
+                percent=0.0, price=price,
+                pre_portfolio_value=self.portfolio_value,
+                current_cash=self.cash)
+            self.cash += cash_change
+            if volume != 0:
+                self.info["orders"].append(["sell", self.code,
+                                            round(cash_change, 1),
+                                            round(price, 2), volume])
+            logger.debug("sell %s target_percent: 0, cash_change: %.3f" %
+                         (self.code, cash_change))
+            return cash_change, ok
+        return 0, ok
+
+    def buy(self, price):
+        logger.debug("buy %s, bid_price: %.2f" % (self.code, price))
+        ok, price = self.market.buy_check(
+            code=self.code,
+            datestr=self.current_date,
+            bid_price=price)
+        pre_cash = self.cash
+        if ok:
+            # 全仓买进
+            cash_change, price, volume = self.portfolio.order_value(
+                amount=self.cash,
+                price=price,
+                current_cash=self.cash)
+            self.cash += cash_change
+            if volume != 0:
+                self.info["orders"].append(["buy", self.code,
+                                            round(cash_change, 1),
+                                            round(price, 2), volume])
+            logger.debug("buy %s cash: %.1f, cash_change: %1.f" %
+                         (self.code, pre_cash, cash_change))
+            return cash_change, ok
+        return 0, ok
+
+    def update_portfolio(self):
+        pre_portfolio_value = self.portfolio_value
+        p = self.portfolio
+        self.market_value = p.market_value
+        self.daily_pnl = p.daily_pnl
+        self.pnl = p.pnl
+        self.transaction_cost = p.transaction_cost
+        self.all_transaction_cost = p.all_transaction_cost
+        self.total_pnl += p.pnl
+
+        # 当日收益率 更新
+        if pre_portfolio_value == 0:
+            self.daily_return = 0
+        else:
+            self.daily_return = self.daily_pnl / pre_portfolio_value
+        # update portfolio_value
+        self.portfolio_value = self.market_value + self.cash
+
+    def update_value_percent(self):
+        if self.portfolio_value == 0:
+            self.value_percent = 0.0
+        else:
+            self.value_percent = self.market_value / self.portfolio_value
+
+    def update_is_suspended(self):
+        if self.market.is_suspended(code=self.code, datestr=self.current_date):
+            self.portfolio.is_suspended = 1.0
+        else:
+            self.portfolio.is_suspended = 0.0
 
     def do_action(self, action, pre_portfolio_value, only_update):
         sell_price, buy_price = self.get_action_price(action)
         divide_rate = self.market.get_divide_rate(self.code, self.current_date)
+        logger.debug("divide_rate: %.4f" % divide_rate)
         self.portfolio.update_before_trade(divide_rate)
+        cash_change = 0
         if not only_update:
             sell_cash_change, ok = self.sell(sell_price)
             buy_cash_change, ok = self.buy(buy_price)
@@ -115,13 +195,16 @@ class SimpleEnv(gym.Env):
             pre_portfolio_value=pre_portfolio_value)
 
     def _next_state(self):
-        equity_state = self.market.codes_history[self.code][self.current_date]
-        portfolio_state = [self.portfolio.daily_return,
-                           self.portfolio.value_percent]
-        new_state = np.concatenate((equity_state, portfolio_state), axis=1)
-        state = np.concatenate((self.state[1:, :], new_state), axis=0)
-        self.current_time_id += 1
-        self.current_date = self.dates[self.current_time_id]
+        equity_state = self.market.codes_history[
+            self.code].loc[self.current_date].values
+        portfolio_state = np.array([self.portfolio.daily_return,
+                                    self.portfolio.value_percent])
+        new_state = np.concatenate((equity_state, portfolio_state), axis=0)
+        state = np.concatenate((self.state[1:, :],
+                                np.array([new_state])), axis=0)
+        if not self.done:
+            self.current_time_id += 1
+            self.current_date = self.dates[self.current_time_id]
         self.pre_cash = self.cash
         return state
 
@@ -132,11 +215,12 @@ class SimpleEnv(gym.Env):
         self.action = action
         self.info = {"orders": []}
         logger.debug("=" * 50 + "%s" % self.current_date + "=" * 50)
-        logger.debug("current_time_id: %d" % self.current_time_id)
+        logger.debug("current_time_id: %d, portfolio: %.1f" %
+                     (self.current_time_id, self.portfolio_value))
         logger.debug("step actions: %s" % str(action))
 
         # 到最后一天
-        if self.current_date == self.end:
+        if self.current_date == self.dates[-1]:
             self.done = True
 
         pre_portfolio_value = self.portfolio_value

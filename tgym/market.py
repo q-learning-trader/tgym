@@ -194,10 +194,18 @@ class Market:
     def get_pre_close_price(self, code, datestr):
         if datestr in self.codes_history[code].index:
             return self.codes_history[code].loc[datestr]["pre_close"]
-        # 如果当天停牌
+        # 如果当天停牌, 返回前一开市日的pre_close
         df = self.codes_history[code]
         df_ = df[df.index < datestr]
         return df_.iloc[-1]["pre_close"]
+
+    def get_close_price(self, code, datestr):
+        if datestr in self.codes_history[code].index:
+            return self.codes_history[code].loc[datestr]["close"]
+        # 如果当天停牌, 返回前一开市日收盘价
+        df = self.codes_history[code]
+        df_ = df[df.index < datestr]
+        return df_.iloc[-1]["close"]
 
     def get_pre_adj_factor(self, code, datestr):
         df = self.codes_history[code]
@@ -211,6 +219,6 @@ class Market:
             return self.codes_history[code].loc[datestr]["adj_factor"]
 
     def get_divide_rate(self, code, datestr):
-        pre_adj_factor = self.get_pre_adj_factor(code)
+        pre_adj_factor = self.get_pre_adj_factor(code, datestr)
         current_adj_factor = self.get_adj_factor(code, datestr)
         return current_adj_factor / pre_adj_factor

@@ -36,7 +36,8 @@ class TestSimple(unittest.TestCase):
             look_back_days=self.look_back_days)
 
     def test_buy_and_hold(self):
-        action = [0, 0]
+        # 20190116, 收盘涨 2.38%
+        action = [0, 0.238]
         self.env.reset()
         state, reward, done, info = self.env.step(action, only_update=False)
         while not done:
