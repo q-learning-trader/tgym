@@ -180,12 +180,6 @@ class SimpleEnv(gym.Env):
         else:
             self.value_percent = self.market_value / self.portfolio_value
 
-    def update_is_suspended(self):
-        if self.market.is_suspended(code=self.code, datestr=self.current_date):
-            self.portfolio.is_suspended = 1.0
-        else:
-            self.portfolio.is_suspended = 0.0
-
     def do_action(self, action, pre_portfolio_value, only_update):
         sell_price, buy_price = self.get_action_price(action)
         divide_rate = self.market.get_divide_rate(self.code, self.current_date)
@@ -239,8 +233,6 @@ class SimpleEnv(gym.Env):
         self.update_portfolio()
         self.update_value_percent()
         self.update_reward()
-        # 更新停牌信息，state中包含停牌信息
-        self.update_is_suspended()
         self.state = self._next_state()
         self.info = {
             "orders": self.info["orders"],
