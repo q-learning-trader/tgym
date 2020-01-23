@@ -38,7 +38,7 @@ export TUSHARE_TOKEN=YOUR_TOKEN
 
 [Examples](tgym/envs)
 
-场景           | 实现         | action              | state               | reward     | 使用例子
------------- | ---------- | ------------------- | ------------------- | ---------- | ---------------
-单支股票, 每日先卖再买 | simple.py  | [v_sell, v_buy]     | 股票信息(后复权)+指数信息+账户信息 | 盈利=1,否则=-1 | simple_test.py
-多支股票, 每日先卖再买 | average.py | [v_sell, v_buy] * n | 股票信息(后复权)+指数信息+账户信息 | 盈利=1,否则=-1 | average_test.py
+场景           | 实现         | action              | state                 | reward     | 使用例子
+------------ | ---------- | ------------------- | --------------------- | ---------- | ---------------
+单支股票, 每日先卖再买 | simple.py  | [v_sell, v_buy]     | 股票信息(后复权)+指数信息+部分账户信息 | 盈利=1,否则=-1 | simple_test.py
+多支股票, 每日先卖再买 | average.py | [v_sell, v_buy] * n | 股票信息(后复权)+指数信息+部分账户信息 | 盈利=1,否则=-1 | average_test.py
