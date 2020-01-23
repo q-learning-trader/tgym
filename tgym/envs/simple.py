@@ -11,7 +11,7 @@ from tgym.portfolio import Portfolio
 
 class SimpleEnv(gym.Env):
     """
-    单支股票全量日内买卖, T0
+    单支股票全量日内买卖
     action: [scaled_sell_price, scaled_buy_price], 取值[-1, 1], 对应[-0.1, 0.1]
     先以sell_price 卖出, 再以 buy_price 买进
     NOTE(wen): 实际交易时，可能与模拟环境存在差异
