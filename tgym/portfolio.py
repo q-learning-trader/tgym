@@ -178,7 +178,7 @@ class Portfolio:
             if volume > 0:
                 return self._submit_order("buy", price, volume)
             if volume == 0:
-                logging.warning("order_value failed: 0 order quantity")
+                logging.debug("order_value failed: 0 order quantity")
                 return 0, 0, 0
 
         elif amount < 0:
