@@ -27,7 +27,7 @@ class SimpleEnv(gym.Env):
         look_back_days: 向前取数据的天数
         """
         self.market = market
-        # Agent 数量
+        # 股票数量
         self.n = 1
         self.action_space = 2
         self.code = market.codes[0]
@@ -165,6 +165,14 @@ class SimpleEnv(gym.Env):
         self.portfolio_value = self.market_value + self.cash
         self.portfolio_value_logs.append(self.portfolio_value)
 
+    def update_reward(self):
+        # NOTE(wen): 如果今天盈利，则reward=1, 否则reward=-1
+        # reward决定算法的搜索方向, 建议设置为一个连续可导函数
+        if self.daily_pnl <= 0:
+            self.reward = -1
+        else:
+            self.reward = 1
+
     def update_value_percent(self):
         if self.portfolio_value == 0:
             self.value_percent = 0.0
@@ -229,6 +237,7 @@ class SimpleEnv(gym.Env):
         self.do_action(action, pre_portfolio_value, only_update)
         self.update_portfolio()
         self.update_value_percent()
+        self.update_reward()
         # 更新停牌信息，state中包含停牌信息
         self.update_is_suspended()
         self.state = self._next_state()

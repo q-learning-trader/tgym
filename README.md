@@ -38,8 +38,8 @@ pip install -e .
 export TUSHARE_TOKEN=YOUR_TOKEN
 ```
 
-Examples
+[Examples](tgym/envs)
 
-实现        | 场景                                 | 使用例子
---------- | ---------------------------------- | ---------------------------------
-simple.py | 单支股票， action=[v_sell, v_buy], 先卖再买 | `python tgym/envs/simple_test.py`
+实现        | action                      | state               | reward     | 使用例子
+--------- | --------------------------- | ------------------- | ---------- | --------------
+simple.py | 单支股票, [v_sell, v_buy], 先卖再买 | 股票信息(后复权)+指数信息+账户信息 | 盈利=1,否则=-1 | simple_test.py
