@@ -17,7 +17,7 @@
 
 **依赖**
 
-[gym](https://github.com/openai/gym) [tushare](https://github.com/waditu/tushare)
+[tushare](https://github.com/waditu/tushare), [gym](https://github.com/openai/gym)
 
 **安装**
 
