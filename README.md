@@ -11,7 +11,7 @@
 
 ## 安装指南
 
-支持: python 2.7, python 3.5+, 推荐使用 python3.7
+支持: MacOS/Linux(window未测试), python 2.7, python 3.5+, 推荐使用 python3.7
 
 **依赖**
 
