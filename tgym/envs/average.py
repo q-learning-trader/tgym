@@ -12,8 +12,9 @@ class AverageEnv(gym.Env):
     """
     多支股票平均分仓日内买卖
     action: [scaled_sell_price, scaled_buy_price]*n, 取值[-1, 1], 对应[-0.1, 0.1]
+    即: 出价较前一交易日的涨跌幅
     n: 是股票的个数
-    先以sell_price 卖出, 再以 buy_price 买进
+    对每支股票, 先以sell_price 卖出, 再以 buy_price 买进
     NOTE(wen): 实际交易时，可能与模拟环境存在差异
         1. 先到最高价，然后再到最低价：与模拟环境一致
         2. 先到最低价，再到最高价，这里出价有两种情况
@@ -74,7 +75,6 @@ class AverageEnv(gym.Env):
                 code].iloc[:self.look_back_days].values
             state = np.concatenate((equity_state, portfolio_states[i]), axis=1)
             states.append(state)
-
         return states
 
     def reset(self):
