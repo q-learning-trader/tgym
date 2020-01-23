@@ -26,7 +26,7 @@ class TestSimple(unittest.TestCase):
         self.end = "20200101"
         self.codes = ["000001.SZ"]
         self.indexs = ["000001.SH", "399001.SZ"]
-        self.show_plot = True
+        self.show_plot = False
         # self.indexs = []
         self.data_dir = "/tmp/tgym"
         self.m = Market(
@@ -69,7 +69,6 @@ class TestSimple(unittest.TestCase):
             self.plot_portfolio_value("buy_and_hold")
 
     def test_random(self):
-        # logging.root.setLevel(logging.DEBUG)
         random.seed(0)
         # 20190116, 收盘涨 2.38%
         action = [0, 0.238]
