@@ -86,6 +86,7 @@ class SimpleEnv(gym.Env):
         # 每只股的 portfolio
         self.portfolio = Portfolio(code=self.code)
         self.state = self.get_init_state()
+        self.portfolio_value_logs = []
         return self.state
 
     def get_action_price(self, action):
@@ -162,6 +163,7 @@ class SimpleEnv(gym.Env):
             self.daily_return = self.daily_pnl / pre_portfolio_value
         # update portfolio_value
         self.portfolio_value = self.market_value + self.cash
+        self.portfolio_value_logs.append(self.portfolio_value)
 
     def update_value_percent(self):
         if self.portfolio_value == 0:

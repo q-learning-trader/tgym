@@ -2,6 +2,7 @@
 
 import logging
 import os
+import random
 import unittest
 
 from simple import SimpleEnv
@@ -44,6 +45,19 @@ class TestSimple(unittest.TestCase):
             # buy and hold, 持仓不动
             _, _, done, _ = self.env.step(action, only_update=True)
         self.assertEqual(158260.44, self.env.portfolio_value)
+
+    def test_random(self):
+        logging.root.setLevel(logging.DEBUG)
+        random.seed(0)
+        # 20190116, 收盘涨 2.38%
+        action = [0, 0.238]
+        self.env.reset()
+        state, reward, done, info = self.env.step(action, only_update=False)
+        while not done:
+            # buy and hold, 持仓不动
+            action = self.env.get_random_action()
+            _, _, done, _ = self.env.step(action, only_update=False)
+        self.assertEqual(25234.7, round(self.env.portfolio_value, 1))
 
 
 if __name__ == '__main__':
