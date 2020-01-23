@@ -61,7 +61,7 @@ class TestSimple(unittest.TestCase):
         # 20190116, 收盘涨 2.38%
         action = [0, 0.238]
         self.env.reset()
-        state, reward, done, info = self.env.step(action, only_update=False)
+        obs, reward, done, info = self.env.step(action, only_update=False)
         while not done:
             # buy and hold, 持仓不动
             _, _, done, _ = self.env.step(action, only_update=True)
@@ -74,7 +74,7 @@ class TestSimple(unittest.TestCase):
         # 20190116, 收盘涨 2.38%
         action = [0, 0.238]
         self.env.reset()
-        state, reward, done, info = self.env.step(action, only_update=False)
+        obs, reward, done, info = self.env.step(action, only_update=False)
         while not done:
             # buy and hold, 持仓不动
             action = self.env.get_random_action()

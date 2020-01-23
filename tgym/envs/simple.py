@@ -38,7 +38,7 @@ class SimpleEnv(gym.Env):
         self.investment = investment
         # 输入数据: 去除不复权数据 和复权因子
         self.input_size = len(market.codes_history[self.code].iloc[0]) - 10
-        # 每一天放入state中的数据起始位置
+        # 每一天放入obs中的数据起始位置
         self.input_start_index = 10
         # 开市日期列表
         self.dates = market.codes_history[self.code].index.tolist()
@@ -48,21 +48,21 @@ class SimpleEnv(gym.Env):
     def _init_current_time_id(self):
         return self.look_back_days
 
-    def get_init_portfolio_state(self):
+    def get_init_portfolio_obs(self):
         # 初始持仓信息
         one_day = np.array([self.portfolio.daily_return,
                             self.portfolio.value_percent])
-        state = np.array([one_day] * self.look_back_days)
-        return state
+        obs = np.array([one_day] * self.look_back_days)
+        return obs
 
-    def get_init_state(self):
+    def get_init_obs(self):
         """
-        state 由两部分组成: 市场信息, 帐户信息(收益率, 持仓量)
+        obs 由两部分组成: 市场信息, 帐户信息(收益率, 持仓量)
         """
-        equity_state = self.market.codes_history[
+        equity_obs = self.market.codes_history[
             self.code].iloc[:self.look_back_days].values
-        portfolio_state = self.get_init_portfolio_state()
-        return np.concatenate((equity_state, portfolio_state), axis=1)
+        portfolio_obs = self.get_init_portfolio_obs()
+        return np.concatenate((equity_obs, portfolio_obs), axis=1)
 
     def reset(self):
         # 当前时间
@@ -86,9 +86,9 @@ class SimpleEnv(gym.Env):
 
         # 每只股的 portfolio
         self.portfolio = Portfolio(code=self.code)
-        self.state = self.get_init_state()
+        self.obs = self.get_init_obs()
         self.portfolio_value_logs = []
-        return self.state
+        return self.obs
 
     def get_action_price(self, action):
         pre_close = self.market.get_pre_close_price(
@@ -199,19 +199,19 @@ class SimpleEnv(gym.Env):
             cash_change=cash_change,
             pre_portfolio_value=pre_portfolio_value)
 
-    def _next_state(self):
-        equity_state = self.market.codes_history[
+    def _next(self):
+        equity_obs = self.market.codes_history[
             self.code].loc[self.current_date].values
-        portfolio_state = np.array([self.portfolio.daily_return,
+        portfolio_obs = np.array([self.portfolio.daily_return,
                                     self.portfolio.value_percent])
-        new_state = np.concatenate((equity_state, portfolio_state), axis=0)
-        state = np.concatenate((self.state[1:, :],
-                                np.array([new_state])), axis=0)
+        new_obs = np.concatenate((equity_obs, portfolio_obs), axis=0)
+        obs = np.concatenate((self.obs[1:, :],
+                                np.array([new_obs])), axis=0)
         if not self.done:
             self.current_time_id += 1
             self.current_date = self.dates[self.current_time_id]
         self.pre_cash = self.cash
-        return state
+        return obs
 
     def step(self, action, only_update=False):
         """
@@ -233,14 +233,14 @@ class SimpleEnv(gym.Env):
         self.update_portfolio()
         self.update_value_percent()
         self.update_reward()
-        self.state = self._next_state()
+        self.obs = self._next()
         self.info = {
             "orders": self.info["orders"],
             "current_date": self.current_date,
             "portfolio_value": round(self.portfolio_value, 1),
             "daily_pnl": round(self.daily_pnl, 1),
             "reward": self.reward}
-        return self.state, self.reward, self.done, self.info
+        return self.obs, self.reward, self.done, self.info
 
     def get_random_action(self):
         return [random.uniform(-1, 1), random.uniform(-1, 1)]
