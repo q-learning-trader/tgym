@@ -30,9 +30,7 @@ pip install -e .
 
 ## 使用
 
-**[Tushare TOKEN获取](https://tushare.pro/register?reg=124861)**
-
-**Examples**
+[Tushare TOKEN获取](https://tushare.pro/register?reg=124861)
 
 设置 tushare token:
 
