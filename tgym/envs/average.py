@@ -98,8 +98,10 @@ class AverageEnv(gym.Env):
         self.total_pnl = 0
 
         # 每只股的 portfolio
-        self.portfolio = Portfolio(code=self.code)
-        self.obs = self.get_init_obs()
+        self.portfolios = []
+        for code in self.codes:
+            self.portfolios.append(Portfolio(code=code))
+        self.obs = self.get_init_obss()
         self.portfolio_value_logs = []
         return self.obs
 
@@ -194,48 +196,70 @@ class AverageEnv(gym.Env):
             self.value_percent = self.market_value / self.portfolio_value
 
     def do_action(self, action, pre_portfolio_value, only_update):
-        sell_price, buy_price = self.get_action_price(action)
-        divide_rate = self.market.get_divide_rate(self.code, self.current_date)
-        logger.debug("divide_rate: %.4f" % divide_rate)
-        self.portfolio.update_before_trade(divide_rate)
         cash_change = 0
-        if not only_update:
-            sell_cash_change, ok = self.sell(sell_price)
-            buy_cash_change, ok = self.buy(buy_price)
-            cash_change = buy_cash_change + sell_cash_change
-            logger.debug("do_action: time_id: %d, %s, cash_change: %.1f" % (
-                self.current_time_id, self.code, cash_change))
+        # 更新拆分信息
+        for i in range(self.n):
+            code = self.codes[i]
+            divide_rate = self.market.get_divide_rate(code, self.current_date)
+            self.portfolios[i].update_before_trade(divide_rate)
+        # 卖出
+        for i in range(self.n):
+            code = self.codes[i]
+            act_i = action[2 * i, 2 * (i + 1)]
+            sell_price, _ = self.get_action_price(act_i)
 
-        close_price = self.market.get_close_price(self.code, self.current_date)
-        self.portfolio.update_after_trade(
-            close_price=close_price,
-            cash_change=cash_change,
-            pre_portfolio_value=pre_portfolio_value)
+            if not only_update:
+                sell_cash_change, ok = self.sell(code, sell_price)
+                cash_change += sell_cash_change
+        # 买进
+        for i in range(self.n):
+            code = self.codes[i]
+            act_i = action[2 * i, 2 * (i + 1)]
+            _, buy_price = self.get_action_price(act_i)
+
+            if not only_update:
+                buy_cash_change, ok = self.buy(code, buy_price)
+                cash_change += buy_cash_change
+
+        logger.debug("do_action: time_id: %d, cash_change: %.1f" % (
+            self.current_time_id, cash_change))
+
+        # update
+        for code in self.codes:
+            close_price = self.market.get_close_price(code, self.current_date)
+            self.portfolios[i].update_after_trade(
+                close_price=close_price,
+                cash_change=cash_change,
+                pre_portfolio_value=pre_portfolio_value)
 
     def _next(self):
-        equity_obs = self.market.codes_history[
-            self.code].loc[self.current_date].values
-        portfolio_obs = np.array([self.portfolio.daily_return,
-                                    self.portfolio.value_percent])
-        new_obs = np.concatenate((equity_obs, portfolio_obs), axis=0)
-        obs = np.concatenate((self.obs[1:, :],
-                                np.array([new_obs])), axis=0)
+        obss = []
+        for i in range(self.n):
+            code = self.codes[i]
+            equity_obs = self.market.codes_history[
+                code].loc[self.current_date].values
+            portfolio_obs = np.array([self.portfolios[i].daily_return,
+                                      self.portfolios[i].value_percent])
+            new_obs = np.concatenate((equity_obs, portfolio_obs), axis=0)
+            obs = np.concatenate((self.obs[i][1:, :],
+                                  np.array([new_obs])), axis=0)
+            obss.append(obs)
         if not self.done:
             self.current_time_id += 1
             self.current_date = self.dates[self.current_time_id]
         self.pre_cash = self.cash
-        return obs
+        return obss
 
     def step(self, action, only_update=False):
         """
-        only_update为True时，表示buy_and_hold策略，可用于baseline策略
+        only_update为True时，表示buy_and_hold策略，可作为一种baseline策略
         """
         self.action = action
         self.info = {"orders": []}
         logger.debug("=" * 50 + "%s" % self.current_date + "=" * 50)
         logger.debug("current_time_id: %d, portfolio: %.1f" %
                      (self.current_time_id, self.portfolio_value))
-        logger.debug("step actions: %s" % str(action))
+        logger.debug("step action: %s" % str(action))
 
         # 到最后一天
         if self.current_date == self.dates[-1]:
@@ -255,4 +279,4 @@ class AverageEnv(gym.Env):
         return self.obs, self.reward, self.done, self.info
 
     def get_random_action(self):
-        return [random.uniform(-1, 1), random.uniform(-1, 1)]
+        return [random.uniform(-1, 1), random.uniform(-1, 1)] * self.n
