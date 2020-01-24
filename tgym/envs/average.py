@@ -117,21 +117,24 @@ class AverageEnv(gym.Env):
         buy_price = round(pre_close * (1 + pct_buy), 2)
         return sell_price, buy_price
 
-    def sell(self, price):
-        logger.debug("sell %s, bid price: %.2f" % (self.code, price))
+    def sell(self, id, price):
+        # id: code id
+        code = self.codes[id]
+        logger.debug("sell %s, bid price: %.2f" % (code, price))
         ok, price = self.market.sell_check(
-            code=self.code,
+            code=code,
             datestr=self.current_date,
             bid_price=price)
         if ok:
             # 全仓卖出
-            cash_change, price, volume = self.portfolio.order_target_percent(
-                percent=0.0, price=price,
-                pre_portfolio_value=self.portfolio_value,
-                current_cash=self.cash)
+            cash_change, price, volume = self.portfolios[
+                id].order_target_percent(
+                    percent=0.0, price=price,
+                    pre_portfolio_value=self.portfolio_value,
+                    current_cash=self.cash)
             self.cash += cash_change
             if volume != 0:
-                self.info["orders"].append(["sell", self.code,
+                self.info["orders"].append(["sell", code,
                                             round(cash_change, 1),
                                             round(price, 2), volume])
             logger.debug("sell %s target_percent: 0, cash_change: %.3f" %
@@ -139,22 +142,24 @@ class AverageEnv(gym.Env):
             return cash_change, ok
         return 0, ok
 
-    def buy(self, price):
-        logger.debug("buy %s, bid_price: %.2f" % (self.code, price))
+    def buy(self, id, price):
+        # id: code id
+        code = self.codes[id]
+        logger.debug("buy %s, bid_price: %.2f" % (code, price))
         ok, price = self.market.buy_check(
-            code=self.code,
+            code=code,
             datestr=self.current_date,
             bid_price=price)
         pre_cash = self.cash
         if ok:
             # 全仓买进
-            cash_change, price, volume = self.portfolio.order_value(
+            cash_change, price, volume = self.portfolios[id].order_value(
                 amount=self.cash,
                 price=price,
                 current_cash=self.cash)
             self.cash += cash_change
             if volume != 0:
-                self.info["orders"].append(["buy", self.code,
+                self.info["orders"].append(["buy", code,
                                             round(cash_change, 1),
                                             round(price, 2), volume])
             logger.debug("buy %s cash: %.1f, cash_change: %1.f" %
@@ -194,6 +199,8 @@ class AverageEnv(gym.Env):
             self.value_percent = 0.0
         else:
             self.value_percent = self.market_value / self.portfolio_value
+        for i in range(self.n):
+            self.portfolios[i].update_value_percent(self.portfolio_value)
 
     def do_action(self, action, pre_portfolio_value, only_update):
         cash_change = 0
@@ -207,7 +214,6 @@ class AverageEnv(gym.Env):
             code = self.codes[i]
             act_i = action[2 * i, 2 * (i + 1)]
             sell_price, _ = self.get_action_price(act_i)
-
             if not only_update:
                 sell_cash_change, ok = self.sell(code, sell_price)
                 cash_change += sell_cash_change
@@ -216,7 +222,6 @@ class AverageEnv(gym.Env):
             code = self.codes[i]
             act_i = action[2 * i, 2 * (i + 1)]
             _, buy_price = self.get_action_price(act_i)
-
             if not only_update:
                 buy_cash_change, ok = self.buy(code, buy_price)
                 cash_change += buy_cash_change
@@ -279,4 +284,4 @@ class AverageEnv(gym.Env):
         return self.obs, self.reward, self.done, self.info
 
     def get_random_action(self):
-        return [random.uniform(-1, 1), random.uniform(-1, 1)] * self.n
+        return [random.uniform(-1, 1) for i in range(self.n * 2)]
