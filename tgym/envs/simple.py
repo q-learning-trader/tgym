@@ -22,7 +22,7 @@ class SimpleEnv(gym.Env):
             无现金(满仓)，模拟环境可以成交，实盘交易时的成交状态不一定可以成交
     """
 
-    def __init__(self, market, investment=100000.0, look_back_days=10):
+    def __init__(self, market=None, investment=100000.0, look_back_days=10):
         """
         investment: 初始资金
         look_back_days: 向前取数据的天数
@@ -203,10 +203,10 @@ class SimpleEnv(gym.Env):
         equity_obs = self.market.codes_history[
             self.code].loc[self.current_date].values
         portfolio_obs = np.array([self.portfolio.daily_return,
-                                    self.portfolio.value_percent])
+                                  self.portfolio.value_percent])
         new_obs = np.concatenate((equity_obs, portfolio_obs), axis=0)
         obs = np.concatenate((self.obs[1:, :],
-                                np.array([new_obs])), axis=0)
+                              np.array([new_obs])), axis=0)
         if not self.done:
             self.current_time_id += 1
             self.current_date = self.dates[self.current_time_id]

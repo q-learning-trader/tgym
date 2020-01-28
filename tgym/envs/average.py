@@ -22,7 +22,7 @@ class AverageEnv(gym.Env):
             无现金(满仓)，模拟环境可以成交，实盘交易时的成交状态不一定可以成交
     """
 
-    def __init__(self, market, investment=100000.0, look_back_days=10):
+    def __init__(self, market=None, investment=100000.0, look_back_days=10):
         """
         investment: 初始资金
         look_back_days: 向前取数据的天数
