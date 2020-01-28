@@ -4,7 +4,7 @@ import logging
 import os
 import unittest
 
-from market import Market
+from tgym.envs.market import Market
 
 logging.root.setLevel(logging.ERROR)
 

@@ -132,11 +132,11 @@ class Market:
                         self.codes_history[code] = self.codes_history[
                             code].drop(columns=[drop_column], axis=1)
 
+            self.codes_history[code] = self.codes_history[
+                code].sort_values(by="trade_date", ascending=True)
+            if "trade_date" in self.codes_history[code].columns:
                 self.codes_history[code] = self.codes_history[
-                    code].sort_values(by="trade_date", ascending=True)
-                if "trade_date" in self.codes_history[code].columns:
-                    self.codes_history[code] = self.codes_history[
-                        code].set_index("trade_date")
+                    code].set_index("trade_date")
             # index int64 -> str
             self.codes_history[code].index = self.codes_history[
                 code].index.astype(str, copy=False)

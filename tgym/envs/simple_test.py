@@ -10,7 +10,7 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 from pandas.plotting import register_matplotlib_converters
 
-from simple import SimpleEnv
+from tgym.envs.simple import SimpleEnv
 from tgym.market import Market
 
 logging.root.setLevel(logging.INFO)

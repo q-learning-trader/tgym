@@ -10,7 +10,7 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 from pandas.plotting import register_matplotlib_converters
 
-from average import AverageEnv
+from tgym.envs.average import AverageEnv
 from tgym.market import Market
 
 logging.root.setLevel(logging.INFO)
@@ -59,14 +59,14 @@ class TestAverage(unittest.TestCase):
 
     def test_get_open_dates(self):
         actual = self.env.get_open_dates()
-        print(actual)
         self.assertEqual(244, len(actual))
 
     def test_get_init_portfolio_obss(self):
         self.env.reset()
         actual = self.env.get_init_portfolio_obss()
         self.assertEqual(2, len(actual))
-
+        self.assertEqual(10, len(actual[0]))
+        self.assertEquals([[0, 0]] * self.look_back_days, actual[0].tolist())
 
     # def test_buy_and_hold(self):
     #     # 20190116, 收盘涨 2.38%
