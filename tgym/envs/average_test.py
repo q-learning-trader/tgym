@@ -68,6 +68,11 @@ class TestAverage(unittest.TestCase):
         self.assertEqual(10, len(actual[0]))
         self.assertEquals([[0, 0]] * self.look_back_days, actual[0].tolist())
 
+    def test_get_init_obss(self):
+        self.env.reset()
+        actual = self.env.get_init_obss()
+        print(actual)
+
     # def test_buy_and_hold(self):
     #     # 20190116, 收盘涨 2.38%
     #     action = [0, 0.238]
