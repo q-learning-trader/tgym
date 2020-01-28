@@ -134,16 +134,12 @@ class Market:
 
                 self.codes_history[code] = self.codes_history[
                     code].sort_values(by="trade_date", ascending=True)
-                print("set index")
                 if "trade_date" in self.codes_history[code].columns:
                     self.codes_history[code] = self.codes_history[
                         code].set_index("trade_date")
-                    print("set index success")
             # index int64 -> str
-            print(self.codes_history[code].head())
             self.codes_history[code].index = self.codes_history[
                 code].index.astype(str, copy=False)
-            print(self.codes_history[code].head())
 
     def is_suspended(self, code='', datestr=''):
         # 是否停牌，是：返回 True, 否：返回 False
