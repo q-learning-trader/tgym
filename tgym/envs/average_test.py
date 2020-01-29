@@ -27,7 +27,7 @@ class TestAverage(unittest.TestCase):
         self.codes = ["000001.SZ", "000002.SZ"]
         # self.indexs = ["000001.SH", "399001.SZ"]
         self.indexs = []
-        self.show_plot = True
+        self.show_plot = False
         # self.indexs = []
         self.data_dir = "/tmp/tgym"
         self.m = Market(
