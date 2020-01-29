@@ -11,10 +11,11 @@ from tgym.portfolio import Portfolio
 class AverageEnv(gym.Env):
     """
     多支股票平均分仓日内买卖
-    action: [scaled_sell_price, scaled_buy_price]*n, 取值[-1, 1], 对应[-0.1, 0.1]
-    即: 出价较前一交易日的涨跌幅
+    action: [scaled_sell_price, scaled_sell_percent,
+    scaled_buy_price, scaled_buy_percent]*n, 所有取值[-1, 1], 价格对应[-0.1, 0.1],
+    即: 出价较前一交易日的涨跌幅. percent对应[0, 1], 仓位占比
     n: 是股票的个数
-    对每支股票, 先以sell_price 卖出, 再以 buy_price 买进
+    对每支股票, 先以sell_price 卖出目标仓位, 再以 buy_price 买进目标仓位
     NOTE(wen): 实际交易时，可能与模拟环境存在差异
         1. 先到最高价，然后再到最低价：与模拟环境一致
         2. 先到最低价，再到最高价，这里出价有两种情况
@@ -106,17 +107,15 @@ class AverageEnv(gym.Env):
         self.portfolio_value_logs = []
         return self.obs
 
-    def get_action_price(self, action, code):
+    def get_action_price(self, v_price, code):
         pre_close = self.market.get_pre_close_price(
             code, self.current_date)
         logger.debug("%s %s pre_close: %.2f" %
                      (self.current_date, code, pre_close))
-        [v_sell, v_buy] = action
         # scale [-1, 1] to [-0.1, 0.1]
-        pct_sell, pct_buy = v_sell * 0.1, v_buy * 0.1
-        sell_price = round(pre_close * (1 + pct_sell), 2)
-        buy_price = round(pre_close * (1 + pct_buy), 2)
-        return sell_price, buy_price
+        pct = v_price * 0.1
+        price = round(pre_close * (1 + pct), 2)
+        return price
 
     def sell(self, id, price):
         # id: code id
@@ -209,6 +208,9 @@ class AverageEnv(gym.Env):
             self.portfolios[i].update_value_percent(self.portfolio_value)
 
     def do_action(self, action, pre_portfolio_value, only_update):
+        """
+        only_update: 仅更新Portfolio, 不做操作, 即:buy_and_hold策略
+        """
         cash_change = 0
         # 更新拆分信息
         for i in range(self.n):
@@ -219,9 +221,8 @@ class AverageEnv(gym.Env):
             # 卖出
             for i in range(self.n):
                 code = self.codes[i]
-                act_i = action[2 * i: 2 * (i + 1)]
-                sell_price, _ = self.get_action_price(act_i, code)
-
+                act_i = action[4 * i: 4 * (i + 1)]
+                sell_price = self.get_action_price(act_i[0], code)
                 sell_cash_change, ok = self.sell(i, sell_price)
                 cash_change += sell_cash_change
             # 买进
@@ -229,7 +230,6 @@ class AverageEnv(gym.Env):
                 code = self.codes[i]
                 act_i = action[2 * i: 2 * (i + 1)]
                 _, buy_price = self.get_action_price(act_i, code)
-
                 buy_cash_change, ok = self.buy(i, buy_price)
                 cash_change += buy_cash_change
 
