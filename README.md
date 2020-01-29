@@ -48,4 +48,4 @@ export TUSHARE_TOKEN=YOUR_TOKEN
 
 - [x] 单支股票, 全仓操作
 - [x] 多支股票, 均匀分仓操作
-- [] 多支股票，支持仓位控制 ongoing
+- [ ] 多支股票，支持仓位控制 ongoing
