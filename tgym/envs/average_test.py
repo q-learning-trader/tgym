@@ -27,7 +27,7 @@ class TestAverage(unittest.TestCase):
         self.codes = ["000001.SZ", "000002.SZ"]
         # self.indexs = ["000001.SH", "399001.SZ"]
         self.indexs = []
-        self.show_plot = False
+        self.show_plot = True
         # self.indexs = []
         self.data_dir = "/tmp/tgym"
         self.m = Market(
@@ -49,7 +49,7 @@ class TestAverage(unittest.TestCase):
         MTFmt = '%Y%m%d'
         ax = plt.gca()
         ax.xaxis.set_major_formatter(mdates.DateFormatter(MTFmt))
-        plt.title(self.env.code + " " + name, fontsize=10)
+        plt.title(name, fontsize=10)
         dates = [datetime.datetime.strptime(d, MTFmt) for d in self.env.dates[
             self.look_back_days:]]
         plt.plot(dates,
@@ -71,33 +71,57 @@ class TestAverage(unittest.TestCase):
     def test_get_init_obss(self):
         self.env.reset()
         actual = self.env.get_init_obss()
-        print(actual)
+        self.assertEqual(2, len(actual))
+        self.assertEqual(10, len(actual[0]))
+        # TODO: 更具体的测试
 
-    # def test_buy_and_hold(self):
-    #     # 20190116, 收盘涨 2.38%
-    #     action = [0, 0.238]
-    #     self.env.reset()
-    #     obs, reward, done, info = self.env.step(action, only_update=False)
-    #     while not done:
-    #         # buy and hold, 持仓不动
-    #         _, _, done, _ = self.env.step(action, only_update=True)
-    #     self.assertEqual(158260.44, self.env.portfolio_value)
-    #     if self.show_plot:
-    #         self.plot_portfolio_value("buy_and_hold")
-    #
-    # def test_random(self):
-    #     random.seed(0)
-    #     # 20190116, 收盘涨 2.38%
-    #     action = [0, 0.238]
-    #     self.env.reset()
-    #     obs, reward, done, info = self.env.step(action, only_update=False)
-    #     while not done:
-    #         # buy and hold, 持仓不动
-    #         action = self.env.get_random_action()
-    #         _, _, done, _ = self.env.step(action, only_update=False)
-    #     self.assertEqual(25234.7, round(self.env.portfolio_value, 1))
-    #     if self.show_plot:
-    #         self.plot_portfolio_value("random_action")
+    def test_get_action_price(self):
+        self.env.reset()
+        # pre_close: 10.24
+        action, code = [-0.1, 0.1], self.codes[0]
+        sell_price, buy_price = self.env.get_action_price(action, code)
+        self.assertEqual(10.14, sell_price)
+        self.assertEqual(10.34, buy_price)
+
+    def test_buy_and_hold(self):
+        # 20190116, 收盘涨 2.38%
+        action = [0, 0.238, 0, 0.103]
+        self.env.reset()
+        obs, reward, done, info = self.env.step(action, only_update=False)
+        action = [0] * 4
+        while not done:
+            # buy and hold, 持仓不动
+            _, _, done, _ = self.env.step(action, only_update=True)
+        self.assertEqual(144057.17, self.env.portfolio_value)
+        if self.show_plot:
+            self.plot_portfolio_value("buy_and_hold")
+
+    def test_random(self):
+        random.seed(0)
+        # 20190116, 收盘涨 2.38%
+        action = [0, 0.238, 0, 0.103]
+        self.env.reset()
+        obs, reward, done, info = self.env.step(action, only_update=False)
+        while not done:
+            # buy and hold, 持仓不动
+            action = self.env.get_random_action()
+            _, _, done, _ = self.env.step(action, only_update=False)
+        self.assertEqual(21408.2, round(self.env.portfolio_value, 1))
+        if self.show_plot:
+            self.plot_portfolio_value("random_action")
+
+    def test_static(self):
+        # 20190116, 收盘涨 2.38%
+        action = [0, 0.238, 0, 0.103]
+        self.env.reset()
+        obs, reward, done, info = self.env.step(action, only_update=False)
+        action = [0.1, -0.1, 0.1, -0.1]
+        while not done:
+            # buy and hold, 持仓不动
+            _, _, done, _ = self.env.step(action, only_update=False)
+        self.assertEqual(104933.3, round(self.env.portfolio_value, 1))
+        if self.show_plot:
+            self.plot_portfolio_value("static")
 
 
 if __name__ == '__main__':

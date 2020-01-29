@@ -30,6 +30,7 @@ class AverageEnv(gym.Env):
         self.market = market
         # 股票数量
         self.n = len(market.codes)
+        self.avg_percent = 1.0 / self.n
         self.action_space = 2 * self.n
         self.codes = market.codes
         self.start = market.start
@@ -105,11 +106,11 @@ class AverageEnv(gym.Env):
         self.portfolio_value_logs = []
         return self.obs
 
-    def get_action_price(self, action):
+    def get_action_price(self, action, code):
         pre_close = self.market.get_pre_close_price(
-            self.code, self.current_date)
+            code, self.current_date)
         logger.debug("%s %s pre_close: %.2f" %
-                     (self.current_date, self.code, pre_close))
+                     (self.current_date, code, pre_close))
         [v_sell, v_buy] = action
         # scale [-1, 1] to [-0.1, 0.1]
         pct_sell, pct_buy = v_sell * 0.1, v_buy * 0.1
@@ -127,18 +128,18 @@ class AverageEnv(gym.Env):
             bid_price=price)
         if ok:
             # 全仓卖出
-            cash_change, price, volume = self.portfolios[
+            cash_change, price, vol = self.portfolios[
                 id].order_target_percent(
                     percent=0.0, price=price,
                     pre_portfolio_value=self.portfolio_value,
                     current_cash=self.cash)
             self.cash += cash_change
-            if volume != 0:
+            if vol != 0:
                 self.info["orders"].append(["sell", code,
                                             round(cash_change, 1),
-                                            round(price, 2), volume])
+                                            round(price, 2), vol])
             logger.debug("sell %s target_percent: 0, cash_change: %.3f" %
-                         (self.code, cash_change))
+                         (code, cash_change))
             return cash_change, ok
         return 0, ok
 
@@ -152,30 +153,35 @@ class AverageEnv(gym.Env):
             bid_price=price)
         pre_cash = self.cash
         if ok:
-            # 全仓买进
-            cash_change, price, volume = self.portfolios[id].order_value(
-                amount=self.cash,
-                price=price,
+            # 分仓买进
+            cash_change, price, vol = self.portfolios[id].order_target_percent(
+                percent=self.avg_percent, price=price,
+                pre_portfolio_value=self.portfolio_value,
                 current_cash=self.cash)
             self.cash += cash_change
-            if volume != 0:
+            if vol != 0:
                 self.info["orders"].append(["buy", code,
                                             round(cash_change, 1),
-                                            round(price, 2), volume])
+                                            round(price, 2), vol])
             logger.debug("buy %s cash: %.1f, cash_change: %1.f" %
-                         (self.code, pre_cash, cash_change))
+                         (code, pre_cash, cash_change))
             return cash_change, ok
         return 0, ok
 
     def update_portfolio(self):
         pre_portfolio_value = self.portfolio_value
-        p = self.portfolio
-        self.market_value = p.market_value
-        self.daily_pnl = p.daily_pnl
-        self.pnl = p.pnl
-        self.transaction_cost = p.transaction_cost
-        self.all_transaction_cost = p.all_transaction_cost
-        self.total_pnl += p.pnl
+        self.market_value = 0
+        self.daily_pnl = 0
+        self.pnl = 0
+        self.transaction_cost = 0
+        self.all_transaction_cost = 0
+        for p in self.portfolios:
+            self.market_value += p.market_value
+            self.daily_pnl += p.daily_pnl
+            self.pnl += p.pnl
+            self.transaction_cost += p.transaction_cost
+            self.all_transaction_cost += p.all_transaction_cost
+        self.total_pnl += self.pnl
 
         # 当日收益率 更新
         if pre_portfolio_value == 0:
@@ -209,28 +215,30 @@ class AverageEnv(gym.Env):
             code = self.codes[i]
             divide_rate = self.market.get_divide_rate(code, self.current_date)
             self.portfolios[i].update_before_trade(divide_rate)
-        # 卖出
-        for i in range(self.n):
-            code = self.codes[i]
-            act_i = action[2 * i, 2 * (i + 1)]
-            sell_price, _ = self.get_action_price(act_i)
-            if not only_update:
-                sell_cash_change, ok = self.sell(code, sell_price)
-                cash_change += sell_cash_change
-        # 买进
-        for i in range(self.n):
-            code = self.codes[i]
-            act_i = action[2 * i, 2 * (i + 1)]
-            _, buy_price = self.get_action_price(act_i)
-            if not only_update:
-                buy_cash_change, ok = self.buy(code, buy_price)
-                cash_change += buy_cash_change
+        if not only_update:
+            # 卖出
+            for i in range(self.n):
+                code = self.codes[i]
+                act_i = action[2 * i: 2 * (i + 1)]
+                sell_price, _ = self.get_action_price(act_i, code)
+                if not only_update:
+                    sell_cash_change, ok = self.sell(i, sell_price)
+                    cash_change += sell_cash_change
+            # 买进
+            for i in range(self.n):
+                code = self.codes[i]
+                act_i = action[2 * i: 2 * (i + 1)]
+                _, buy_price = self.get_action_price(act_i, code)
+                if not only_update:
+                    buy_cash_change, ok = self.buy(i, buy_price)
+                    cash_change += buy_cash_change
 
         logger.debug("do_action: time_id: %d, cash_change: %.1f" % (
             self.current_time_id, cash_change))
 
         # update
-        for code in self.codes:
+        for i in range(self.n):
+            code = self.codes[i]
             close_price = self.market.get_close_price(code, self.current_date)
             self.portfolios[i].update_after_trade(
                 close_price=close_price,
