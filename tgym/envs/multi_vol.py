@@ -8,7 +8,7 @@ from tgym.logger import logger
 from tgym.portfolio import Portfolio
 
 
-class AverageEnv(gym.Env):
+class MultiVolEnv(gym.Env):
     """
     多支股票平均分仓日内买卖
     action: [scaled_sell_price, scaled_sell_percent,
@@ -298,4 +298,4 @@ class AverageEnv(gym.Env):
         return self.obs, self.reward, self.done, self.info
 
     def get_random_action(self):
-        return [random.uniform(-1, 1) for i in range(self.n * 2)]
+        return [random.uniform(-1, 1) for i in range(self.n * 4)]
