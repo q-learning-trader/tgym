@@ -44,8 +44,14 @@ export TUSHARE_TOKEN=YOUR_TOKEN
 多支股票平均分仓, 每日先卖再买     | average.py   | [v_sell, v_buy] * n                              | 股票信息(后复权)+指数信息+部分账户信息 | 盈利=1,否则=-1 | average_test.py
 多支股票, 支持仓位控制, 每日先卖再买 | multi_vol.py | [v_sell, v_sell_target, v_buy, v_buy_target] * n | 股票信息(后复权)+指数信息+部分账户信息 | 盈利=1,否则=-1 | multi_vol_test.py
 
-场景(TODO):
+场景:
 
 - [x] 单支股票, 全仓操作
 - [x] 多支股票, 均匀分仓操作
 - [x] 多支股票，支持仓位控制
+
+## env设计
+
+- 定义action
+- 定义observation
+- 定义reward
