@@ -13,7 +13,7 @@ class AverageEnv(gym.Env):
     多支股票平均分仓日内买卖
     action: [scaled_sell_price, scaled_sell_percent,
     scaled_buy_price, scaled_buy_percent]*n, 所有取值[-1, 1], 价格对应[-0.1, 0.1],
-    即: 出价较前一交易日的涨跌幅. percent对应[0, 1], 仓位占比
+    即: 出价较前一交易日的涨跌幅. percent对应[0, 1], 表示仓位占比.
     n: 是股票的个数
     对每支股票, 先以sell_price 卖出目标仓位, 再以 buy_price 买进目标仓位
     NOTE(wen): 实际交易时，可能与模拟环境存在差异
@@ -31,7 +31,6 @@ class AverageEnv(gym.Env):
         self.market = market
         # 股票数量
         self.n = len(market.codes)
-        self.avg_percent = 1.0 / self.n
         self.action_space = 2 * self.n
         self.codes = market.codes
         self.start = market.start
@@ -117,7 +116,12 @@ class AverageEnv(gym.Env):
         price = round(pre_close * (1 + pct), 2)
         return price
 
-    def sell(self, id, price):
+    def get_action_target_pct(self, v_vol):
+        # scale [-1, 1] to [0, 1]
+        target_pct = v_vol * 0.5 + 0.5
+        return target_pct
+
+    def sell(self, id, price, target_pct):
         # id: code id
         code = self.codes[id]
         logger.debug("sell %s, bid price: %.2f" % (code, price))
@@ -129,7 +133,7 @@ class AverageEnv(gym.Env):
             # 全仓卖出
             cash_change, price, vol = self.portfolios[
                 id].order_target_percent(
-                    percent=0.0, price=price,
+                    percent=target_pct, price=price,
                     pre_portfolio_value=self.portfolio_value,
                     current_cash=self.cash)
             self.cash += cash_change
@@ -142,7 +146,7 @@ class AverageEnv(gym.Env):
             return cash_change, ok
         return 0, ok
 
-    def buy(self, id, price):
+    def buy(self, id, price, target_pct):
         # id: code id
         code = self.codes[id]
         logger.debug("buy %s, bid_price: %.2f" % (code, price))
@@ -154,7 +158,7 @@ class AverageEnv(gym.Env):
         if ok:
             # 分仓买进
             cash_change, price, vol = self.portfolios[id].order_target_percent(
-                percent=self.avg_percent, price=price,
+                percent=target_pct, price=price,
                 pre_portfolio_value=self.portfolio_value,
                 current_cash=self.cash)
             self.cash += cash_change
@@ -223,14 +227,16 @@ class AverageEnv(gym.Env):
                 code = self.codes[i]
                 act_i = action[4 * i: 4 * (i + 1)]
                 sell_price = self.get_action_price(act_i[0], code)
-                sell_cash_change, ok = self.sell(i, sell_price)
+                target_pct = self.get_action_target_pct(act_i[1])
+                sell_cash_change, ok = self.sell(i, sell_price, target_pct)
                 cash_change += sell_cash_change
             # 买进
             for i in range(self.n):
                 code = self.codes[i]
-                act_i = action[2 * i: 2 * (i + 1)]
-                _, buy_price = self.get_action_price(act_i, code)
-                buy_cash_change, ok = self.buy(i, buy_price)
+                act_i = action[4 * i: 4 * (i + 1)]
+                buy_price = self.get_action_price(act_i[2], code)
+                target_pct = self.get_action_target_pct(act_i[3])
+                buy_cash_change, ok = self.buy(i, buy_price, target_pct)
                 cash_change += buy_cash_change
 
         logger.debug("do_action: time_id: %d, cash_change: %.1f" % (
