@@ -1,7 +1,6 @@
 pandas==0.25.3
-requests
-lxml
-simplejson
-beautfulsoup4
 tushare
 gym
+requests
+beautifulsoup4
+lxml
