@@ -85,6 +85,7 @@ class AverageEnv(gym.Env):
         self.done = False
         # 当日的回报
         self.reward = 0
+        self.rewards = [0] * self.n
         # 累计回报
         self.total_reward = 0.0
         # 当日订单集合
@@ -199,6 +200,12 @@ class AverageEnv(gym.Env):
             self.reward = -1
         else:
             self.reward = 1
+        # 每一只股的reward
+        for i in range(self.n):
+            if self.portfolios[i].daily_pnl <= 0:
+                self.rewards[i] = -1
+            else:
+                self.rewards[i] = 1
 
     def update_value_percent(self):
         if self.portfolio_value == 0:
@@ -289,7 +296,7 @@ class AverageEnv(gym.Env):
             "portfolio_value": round(self.portfolio_value, 1),
             "daily_pnl": round(self.daily_pnl, 1),
             "reward": self.reward}
-        return self.obs, self.reward, self.done, self.info
+        return self.obs, self.reward, self.done, self.info, self.rewards
 
     def get_random_action(self):
         return [random.uniform(-1, 1) for i in range(self.n * 2)]

@@ -65,11 +65,11 @@ class TestMultiVol(unittest.TestCase):
         # 20190116,  收盘时 000001.SZ 2.38%, 000002.SZ 1.03%, 平均分仓买进
         action = [0, -1, 0.238, 0, 0, -1, 0.103, 0]
         self.env.reset()
-        obs, reward, done, info = self.env.step(action, only_update=False)
+        obs, reward, done, info, _ = self.env.step(action, only_update=False)
         action = [0] * 4
         while not done:
             # buy and hold, 持仓不动
-            _, _, done, _ = self.env.step(action, only_update=True)
+            _, _, done, _, _ = self.env.step(action, only_update=True)
         self.assertEqual(144057.17, self.env.portfolio_value)
         if self.show_plot:
             self.plot_portfolio_value("buy_and_hold")
@@ -80,11 +80,11 @@ class TestMultiVol(unittest.TestCase):
         # 20190116,  收盘时 000001.SZ 2.38%, 000002.SZ 1.03%, 平均分仓买进
         action = [0, -1, 0.238, 0, 0, -1, 0.103, 0]
         self.env.reset()
-        obs, reward, done, info = self.env.step(action, only_update=False)
+        obs, reward, done, info, _ = self.env.step(action, only_update=False)
         while not done:
             # buy and hold, 持仓不动
             action = self.env.get_random_action()
-            _, _, done, _ = self.env.step(action, only_update=False)
+            _, _, done, _, _ = self.env.step(action, only_update=False)
         self.assertEqual(119229.0, round(self.env.portfolio_value, 1))
         if self.show_plot:
             self.plot_portfolio_value("random_action")
@@ -93,10 +93,10 @@ class TestMultiVol(unittest.TestCase):
         # 20190116,  收盘时 000001.SZ 2.38%, 000002.SZ 1.03%, 平均分仓买进
         action = [0, -1, 0.238, 0, 0, -1, 0.103, 0]
         self.env.reset()
-        obs, reward, done, info = self.env.step(action, only_update=False)
+        obs, reward, done, info, _ = self.env.step(action, only_update=False)
         action = [0.1, -1, -0.1, 0, 0.1, -1, -0.1, 0]
         while not done:
-            _, _, done, _ = self.env.step(action, only_update=False)
+            _, _, done, _, _ = self.env.step(action, only_update=False)
         self.assertEqual(104933.3, round(self.env.portfolio_value, 1))
         if self.show_plot:
             self.plot_portfolio_value("static")
