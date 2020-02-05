@@ -13,7 +13,7 @@
 
 - 有拆分时，会根据复权因子对持仓进行相应的倍增, 以保持与真实市场一致
 
-- 多支股票时, gym.step() 比OpenAI gym多返回一个名为rewards的list, 包含每支股票的reward, 以方便Multi-Agent算法实现
+- gym.step() 比OpenAI gym多返回一个名为rewards的list, 包含每支股票的reward, 以方便Multi-Agent算法实现
 
 ## 安装指南
 

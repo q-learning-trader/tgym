@@ -61,10 +61,10 @@ class TestSimple(unittest.TestCase):
         # 20190116, 收盘涨 2.38%
         action = [0, 0.238]
         self.env.reset()
-        obs, reward, done, info = self.env.step(action, only_update=False)
+        obs, reward, done, info, _ = self.env.step(action, only_update=False)
         while not done:
             # buy and hold, 持仓不动
-            _, _, done, _ = self.env.step(action, only_update=True)
+            _, _, done, _, _ = self.env.step(action, only_update=True)
         self.assertEqual(158260.44, self.env.portfolio_value)
         if self.show_plot:
             self.plot_portfolio_value("buy_and_hold")
@@ -74,11 +74,11 @@ class TestSimple(unittest.TestCase):
         # 20190116, 收盘涨 2.38%
         action = [0, 0.238]
         self.env.reset()
-        obs, reward, done, info = self.env.step(action, only_update=False)
+        obs, reward, done, info, _ = self.env.step(action, only_update=False)
         while not done:
             # buy and hold, 持仓不动
             action = self.env.get_random_action()
-            _, _, done, _ = self.env.step(action, only_update=False)
+            _, _, done, _, _ = self.env.step(action, only_update=False)
         self.assertEqual(25234.7, round(self.env.portfolio_value, 1))
         if self.show_plot:
             self.plot_portfolio_value("random_action")

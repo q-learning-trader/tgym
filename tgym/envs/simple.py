@@ -240,7 +240,7 @@ class SimpleEnv(gym.Env):
             "portfolio_value": round(self.portfolio_value, 1),
             "daily_pnl": round(self.daily_pnl, 1),
             "reward": self.reward}
-        return self.obs, self.reward, self.done, self.info
+        return self.obs, self.reward, self.done, self.info, [self.reward]
 
     def get_random_action(self):
         return [random.uniform(-1, 1), random.uniform(-1, 1)]
