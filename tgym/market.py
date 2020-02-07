@@ -66,7 +66,11 @@ class Market:
             data_path = os.path.join(dir,
                                      self.start + "-" + self.end + ".csv")
             if os.path.exists(data_path):
-                self.codes_history[code] = pd.read_csv(data_path)
+                df = pd.read_csv(data_path)
+                df = df.set_index("trade_date")
+                df.index = df.index.astype(str, copy=False)
+                self.codes_history[code] = df
+
             else:
                 # 不复权
                 df_bfq = self.get_code_history(code, adj=None)
@@ -84,6 +88,7 @@ class Market:
                 df["adj_factor"] = df["close_hfq"] / df["close"]
                 df = df.sort_values(by="trade_date", ascending=True)
                 df = df.set_index("trade_date")
+                df.index = df.index.astype(str, copy=False)
                 df.to_csv(data_path)
                 self.codes_history[code] = df
 
@@ -96,7 +101,10 @@ class Market:
             data_path = os.path.join(dir,
                                      self.start + "-" + self.end + ".csv")
             if os.path.exists(data_path):
-                self.indexs_history[code] = pd.read_csv(data_path)
+                df = pd.read_csv(data_path)
+                df = df.set_index("trade_date")
+                df.index = df.index.astype(str, copy=False)
+                self.indexs_history[code] = df
             else:
                 # 不复权
                 pro = ts.pro_api()
@@ -106,6 +114,7 @@ class Market:
                 df = df.drop(columns=["ts_code"], axis=1)
                 df = df.sort_values(by="trade_date", ascending=True)
                 df = df.set_index("trade_date")
+                df.index = df.index.astype(str, copy=False)
                 df.to_csv(data_path)
                 self.indexs_history[code] = df
 
