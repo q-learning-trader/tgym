@@ -59,3 +59,5 @@ export TUSHARE_TOKEN=YOUR_TOKEN
 - 定义action
 - 定义observation
 - 定义reward
+
+# [ ] [Bazel build](https://bazel.build/)
