@@ -36,14 +36,19 @@ class SimpleEnv(gym.Env):
         self.end = market.end
         self.look_back_days = look_back_days
         self.investment = investment
-        # 输入数据: 去除不复权数据 和复权因子
-        self.input_size = len(market.codes_history[self.code].iloc[0]) - 10
-        # 每一天放入obs中的数据起始位置
-        self.input_start_index = 10
+        # 输入数据: 个股信息 + 指数信息
+        self.used_infos = ["equities_hfq_info", "indexs_info"]
+        self.input_size = self.get_input_size()
         # 开市日期列表
-        self.dates = market.codes_history[self.code].index.tolist()
+        self.dates = market.open_dates
         # 记录一个回合的收益序列
         self.returns = []
+
+    def get_input_size(self):
+        size = 0
+        for info_name in self.used_infos:
+            size += self.market.get_info_size(info_name)
+        return size
 
     def _init_current_time_id(self):
         return self.look_back_days
@@ -55,14 +60,23 @@ class SimpleEnv(gym.Env):
         obs = np.array([one_day] * self.look_back_days)
         return obs
 
+    def get_market_info(self, date):
+        info = []
+        for info_name in self.used_infos:
+            data = self.market.market_info[date][info_name]
+            info.extend(data)
+        return np.array(info)
+
     def get_init_obs(self):
         """
         obs 由两部分组成: 市场信息, 帐户信息(收益率, 持仓量)
         """
-        equity_obs = self.market.codes_history[
-            self.code].iloc[:self.look_back_days].values
-        portfolio_obs = self.get_init_portfolio_obs()
-        return np.concatenate((equity_obs, portfolio_obs), axis=1)
+        market_info = []
+        for date in self.dates[: self.look_back_days]:
+            market_info.append(self.get_market_info(date))
+        market_info = np.array(market_info)
+        portfolio_info = self.get_init_portfolio_obs()
+        return np.concatenate((market_info, portfolio_info), axis=1)
 
     def reset(self):
         # 当前时间
@@ -200,11 +214,10 @@ class SimpleEnv(gym.Env):
             pre_portfolio_value=pre_portfolio_value)
 
     def _next(self):
-        equity_obs = self.market.codes_history[
-            self.code].loc[self.current_date].values
-        portfolio_obs = np.array([self.portfolio.daily_return,
+        market_info = self.get_market_info(self.current_date)
+        portfolio_info = np.array([self.portfolio.daily_return,
                                   self.portfolio.value_percent])
-        new_obs = np.concatenate((equity_obs, portfolio_obs), axis=0)
+        new_obs = np.concatenate((market_info, portfolio_info), axis=0)
         obs = np.concatenate((self.obs[1:, :],
                               np.array([new_obs])), axis=0)
         if not self.done:

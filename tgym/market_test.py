@@ -32,6 +32,10 @@ class TestMarket(unittest.TestCase):
         self.assertEqual(244, len(self.m.indexs_history["000001.SH"]))
         self.assertEqual(244, len(self.m.codes_history[self.codes[0]]))
 
+    def test_init_size_info(self):
+        self.assertEqual(10, self.m.equity_hfq_info_size)
+        self.assertEqual(18, self.m.indexs_info_size)
+
     def test_is_suspended(self):
         self.assertTrue(self.m.is_suspended(code='000', datestr=''))
         self.assertTrue(self.m.is_suspended(code='000001.SZ', datestr=''))

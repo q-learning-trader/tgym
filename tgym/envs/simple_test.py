@@ -25,10 +25,9 @@ class TestSimple(unittest.TestCase):
         self.start = "20190101"
         self.end = "20200101"
         self.codes = ["000001.SZ"]
-        # self.indexs = ["000001.SH", "399001.SZ"]
-        self.indexs = []
-        self.show_plot = False
+        self.indexs = ["000001.SH", "399001.SZ"]
         # self.indexs = []
+        self.show_plot = False
         self.data_dir = "/tmp/tgym"
         self.m = Market(
             ts_token=ts_token,

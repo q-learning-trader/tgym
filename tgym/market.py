@@ -34,9 +34,23 @@ class Market:
         self.codes = codes
         self.indexs = indexs
         self.data_dir = data_dir
-
         self.load_codes_history()
         self.load_indexs_history()
+        # hfq数据: 去除不复权数据(9列) 和复权因子(1列): 10, 从第11列开始是后复权数据
+        self.equity_hfq_info_start_index = 10
+        self.init_market_info()
+        self.init_size_info()
+
+    def get_info_size(self, info_name):
+        date = self.open_dates[0]
+        return len(self.market_info[date][info_name])
+
+    def init_size_info(self):
+        """
+        初始化数据的size
+        """
+        self.equity_hfq_info_size = self.get_info_size("equities_hfq_info")
+        self.indexs_info_size = self.get_info_size("indexs_info")
 
     def get_code_history(self, code, adj=None):
         return ts.pro_bar(
@@ -94,7 +108,13 @@ class Market:
 
     def load_indexs_history(self):
         self.indexs_history = {}
+        # 默认加载: 000001.SH(上证指数), 399001.SZ(深城证指)
+        indexs = ["000001.SH", "399001.SZ"]
         for code in self.indexs:
+            if code not in indexs:
+                indexs.append(code)
+
+        for code in indexs:
             dir = os.path.join(self.data_dir, "indexs", code)
             if not os.path.exists(dir):
                 os.makedirs(dir)
@@ -106,7 +126,6 @@ class Market:
                 df.index = df.index.astype(str, copy=False)
                 self.indexs_history[code] = df
             else:
-                # 不复权
                 pro = ts.pro_api()
                 df = pro.index_daily(ts_code=code,
                                      start_date=self.start,
@@ -117,6 +136,90 @@ class Market:
                 df.index = df.index.astype(str, copy=False)
                 df.to_csv(data_path)
                 self.indexs_history[code] = df
+
+    def set_pre_info(self):
+        date = self.open_dates[0]
+        self.equities_pre_hfq_info = {}
+        self.equities_pre_bfq_info = {}
+        for code in self.codes:
+            # 如果第一天就停牌，这里会出错，建议另外选择一天开始回测
+            try:
+                data = self.codes_history[code].loc[date].tolist()
+                bfq_data = data[1: self.equity_hfq_info_start_index]
+                # 开盘时， open=1
+                bfq_data.append(1)
+                self.equities_pre_bfq_info[code] = bfq_data
+                # 后复权
+                hfq_data = data[self.equity_hfq_info_start_index:]
+                # 开盘时， open=1
+                hfq_data.append(1)
+                self.equities_pre_hfq_info[code] = hfq_data
+            except Exception as e:
+                print("%s, %s停牌，建议另外选择一天开始回测" % (code, date))
+                print(e)
+                exit()
+
+    def get_equities_bfq_info(self, date):
+        info = []
+        for code in self.codes:
+            data = None
+            if date in self.codes_history[code].index:
+                data = self.codes_history[code].loc[date].tolist()
+                data = data[1: self.equity_hfq_info_start_index]
+                # 开盘时， open=1
+                data.append(1)
+            else:
+                # 如果停牌则使用前一开盘日信息
+                data = self.equities_pre_bfq_info[code]
+                data[-1] = 0
+            # 更新前一开盘日信息
+            self.equities_pre_bfq_info[code] = data
+            info.extend(data)
+        return info
+
+    def get_equities_hfq_info(self, date):
+        info = []
+        for code in self.codes:
+            data = None
+            if date in self.codes_history[code].index:
+                data = self.codes_history[code].loc[date].tolist()
+                data = data[self.equity_hfq_info_start_index:]
+                # 开盘时， open=1
+                data.append(1)
+            else:
+                # 如果停牌则使用前一开盘日信息
+                data = self.equities_pre_hfq_info[code]
+                data[-1] = 0
+            # 更新前一开盘日信息
+            self.equities_pre_hfq_info[code] = data
+            info.extend(data)
+        return info
+
+    def get_indexs_info(self, date):
+        info = []
+        for code in self.indexs:
+            data = self.indexs_history[code].loc[date].tolist()
+            info.extend(data)
+        return info
+
+    def init_market_info(self):
+        """
+        以日期为key, 将市场相关信息组织在一个dict中:
+            equities_hfq_info: 合并之后的个股信息, 如果某支股停牌，则使用它前一开盘日信息
+            indexs_info: 合并之后指数信息
+        Note(wen): 添加其他市场相关信息，都放在这里
+        """
+        self.open_dates = self.indexs_history["000001.SH"].index.tolist()
+        self.open_dates.sort()
+        self.set_pre_info()
+        self.market_info = {}
+        for date in self.open_dates:
+            self.market_info[date] = {}
+            self.market_info[date]["equities_bfq_info"] = \
+                self.get_equities_bfq_info(date)
+            self.market_info[date]["equities_hfq_info"] = \
+                self.get_equities_hfq_info(date)
+            self.market_info[date]["indexs_info"] = self.get_indexs_info(date)
 
     def is_suspended(self, code='', datestr=''):
         # 是否停牌，是：返回 True, 否：返回 False
