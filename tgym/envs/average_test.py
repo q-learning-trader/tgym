@@ -58,21 +58,19 @@ class TestAverage(unittest.TestCase):
         plt.show()
 
     def test_get_open_dates(self):
-        actual = self.env.get_open_dates()
-        self.assertEqual(244, len(actual))
+        self.assertEqual(244, len(self.env.dates))
 
     def test_get_init_portfolio_obss(self):
         self.env.reset()
-        actual = self.env.get_init_portfolio_obss()
-        self.assertEqual(2, len(actual))
-        self.assertEqual(10, len(actual[0]))
-        self.assertEquals([[0, 0]] * self.look_back_days, actual[0].tolist())
+        actual = self.env.get_init_portfolio_obs()
+        self.assertEqual(10, len(actual))
+        self.assertEqual([0, 0, 0, 0], actual[0].tolist())
 
-    def test_get_init_obss(self):
+    def test_get_init_obs(self):
         self.env.reset()
-        actual = self.env.get_init_obss()
-        self.assertEqual(2, len(actual))
-        self.assertEqual(10, len(actual[0]))
+        actual = self.env.get_init_obs()
+        self.assertEqual(10, len(actual))
+        self.assertEqual(24, len(actual[0]))
         # TODO: 更具体的测试
 
     def test_get_action_price(self):

@@ -78,7 +78,7 @@ class TestSimple(unittest.TestCase):
             # buy and hold, 持仓不动
             action = self.env.get_random_action()
             _, _, done, _, _ = self.env.step(action, only_update=False)
-        self.assertEqual(25234.7, round(self.env.portfolio_value, 1))
+        self.assertEqual(25217.5, round(self.env.portfolio_value, 1))
         if self.show_plot:
             self.plot_portfolio_value("random_action")
 

@@ -1,14 +1,14 @@
 # -*- coding:utf-8 -*-
 import random
 
-import gym
 import numpy as np
 
+from tgym.envs.base import BaseEnv
 from tgym.logger import logger
 from tgym.portfolio import Portfolio
 
 
-class MultiVolEnv(gym.Env):
+class MultiVolEnv(BaseEnv):
     """
     多支股票平均分仓日内买卖
     action: [scaled_sell_price, scaled_sell_percent,
@@ -23,89 +23,35 @@ class MultiVolEnv(gym.Env):
             无现金(满仓)，模拟环境可以成交，实盘交易时的成交状态不一定可以成交
     """
 
-    def __init__(self, market=None, investment=100000.0, look_back_days=10):
+    def __init__(self, market=None, investment=100000.0, look_back_days=10,
+                 used_infos=["equities_hfq_info", "indexs_info"]):
         """
         investment: 初始资金
         look_back_days: 向前取数据的天数
         """
-        self.market = market
-        # 股票数量
-        self.n = len(market.codes)
-        self.action_space = 2 * self.n
-        self.codes = market.codes
-        self.start = market.start
-        self.end = market.end
-        self.look_back_days = look_back_days
-        self.investment = investment
-        # 输入数据: 去除不复权数据 和复权因子
-        self.input_size = len(market.codes_history[self.codes[0]].iloc[0]) - 10
-        # 每一天放入obs中的数据起始位置
-        self.input_start_index = 10
-        # 开市日期列表
-        self.dates = self.get_open_dates()
-        # 记录一个回合的收益序列
-        self.returns = []
+        super(MultiVolEnv, self).__init__(market, investment, look_back_days,
+                                          used_infos)
+        self.action_space = 4 * self.n
 
-    def get_open_dates(self):
-        dates = []
-        for code in self.codes:
-            dates.extend(self.market.codes_history[code].index.tolist())
-        dates = list(set(dates))
-        dates.sort()
-        return dates
+        self.portfolio_info_size = 2
+        self.input_size = self.market_info_size + self.portfolio_info_size
 
-    def _init_current_time_id(self):
-        return self.look_back_days
-
-    def get_init_portfolio_obss(self):
+    def get_init_portfolio_obs(self):
         # 初始持仓 状态
-        one_day = np.array([0, 0])
-        one_obs = np.array([one_day] * self.look_back_days)
-        obss = [one_obs] * self.n
-        return obss
+        one_day = np.array([0] * (self.n * 2))
+        obs = np.array([one_day] * self.look_back_days)
+        return obs
 
-    def get_init_obss(self):
+    def get_init_obs(self):
         """
         obs 由两部分组成: 市场信息, 帐户信息(收益率, 持仓量)
         """
-        obss = []
-        portfolio_obss = self.get_init_portfolio_obss()
-        for i in range(self.n):
-            code = self.codes[i]
-            equity_obs = self.market.codes_history[
-                code].iloc[:self.look_back_days].values
-            obs = np.concatenate((equity_obs, portfolio_obss[i]), axis=1)
-            obss.append(obs)
-        return obss
-
-    def reset(self):
-        # 当前时间
-        self.current_time_id = self._init_current_time_id()
-        self.current_date = self.dates[self.current_time_id]
-        self.done = False
-        # 当日的回报
-        self.reward = 0
-        self.rewards = [0] * self.n
-        # 累计回报
-        self.total_reward = 0.0
-        # 当日订单集合
-        self.info = {"orders": []}
-        # 总权益
-        self.portfolio_value = self.investment
-        # 初始资金
-        self.starting_cash = self.investment
-        # 可用资金
-        self.cash = self.investment
-        self.pre_cash = self.cash
-        self.total_pnl = 0
-
-        # 每只股的 portfolio
-        self.portfolios = []
-        for code in self.codes:
-            self.portfolios.append(Portfolio(code=code))
-        self.obs = self.get_init_obss()
-        self.portfolio_value_logs = []
-        return self.obs
+        market_info = []
+        for date in self.dates[: self.look_back_days]:
+            market_info.append(self.get_market_info(date))
+        market_info = np.array(market_info)
+        portfolio_info = self.get_init_portfolio_obs()
+        return np.concatenate((market_info, portfolio_info), axis=1)
 
     def get_action_price(self, v_price, code):
         pre_close = self.market.get_pre_close_price(
@@ -121,56 +67,6 @@ class MultiVolEnv(gym.Env):
         # scale [-1, 1] to [0, 1]
         target_pct = v_vol * 0.5 + 0.5
         return target_pct
-
-    def sell(self, id, price, target_pct):
-        # id: code id
-        code = self.codes[id]
-        logger.debug("sell %s, bid price: %.2f" % (code, price))
-        ok, price = self.market.sell_check(
-            code=code,
-            datestr=self.current_date,
-            bid_price=price)
-        if ok:
-            # 全仓卖出
-            cash_change, price, vol = self.portfolios[
-                id].order_target_percent(
-                    percent=target_pct, price=price,
-                    pre_portfolio_value=self.portfolio_value,
-                    current_cash=self.cash)
-            self.cash += cash_change
-            if vol != 0:
-                self.info["orders"].append(["sell", code,
-                                            round(cash_change, 1),
-                                            round(price, 2), vol])
-            logger.debug("sell %s target_percent: 0, cash_change: %.3f" %
-                         (code, cash_change))
-            return cash_change, ok
-        return 0, ok
-
-    def buy(self, id, price, target_pct):
-        # id: code id
-        code = self.codes[id]
-        logger.debug("buy %s, bid_price: %.2f" % (code, price))
-        ok, price = self.market.buy_check(
-            code=code,
-            datestr=self.current_date,
-            bid_price=price)
-        pre_cash = self.cash
-        if ok:
-            # 分仓买进
-            cash_change, price, vol = self.portfolios[id].order_target_percent(
-                percent=target_pct, price=price,
-                pre_portfolio_value=self.portfolio_value,
-                current_cash=self.cash)
-            self.cash += cash_change
-            if vol != 0:
-                self.info["orders"].append(["buy", code,
-                                            round(cash_change, 1),
-                                            round(price, 2), vol])
-            logger.debug("buy %s cash: %.1f, cash_change: %1.f" %
-                         (code, pre_cash, cash_change))
-            return cash_change, ok
-        return 0, ok
 
     def update_portfolio(self):
         pre_portfolio_value = self.portfolio_value
@@ -259,22 +155,20 @@ class MultiVolEnv(gym.Env):
                 pre_portfolio_value=pre_portfolio_value)
 
     def _next(self):
-        obss = []
+        market_info = self.get_market_info(self.current_date)
+        portfolio_info = []
         for i in range(self.n):
-            code = self.codes[i]
-            equity_obs = self.market.codes_history[
-                code].loc[self.current_date].values
-            portfolio_obs = np.array([self.portfolios[i].daily_return,
-                                      self.portfolios[i].value_percent])
-            new_obs = np.concatenate((equity_obs, portfolio_obs), axis=0)
-            obs = np.concatenate((self.obs[i][1:, :],
-                                  np.array([new_obs])), axis=0)
-            obss.append(obs)
+            portfolio_info.append(self.portfolios[i].daily_return)
+            portfolio_info.append(self.portfolios[i].value_percent)
+        portfolio_info = np.array(portfolio_info)
+        new_obs = np.concatenate((market_info, portfolio_info), axis=0)
+        obs = np.concatenate((self.obs[1:, :],
+                              np.array([new_obs])), axis=0)
         if not self.done:
             self.current_time_id += 1
             self.current_date = self.dates[self.current_time_id]
         self.pre_cash = self.cash
-        return obss
+        return obs
 
     def step(self, action, only_update=False):
         """
