@@ -54,7 +54,9 @@ export TUSHARE_TOKEN=YOUR_TOKEN
 - [x] 多支股票, 均匀分仓操作
 - [x] 多支股票，支持仓位控制
 
-## env设计
+## 扩展env scenario
+
+可以参考[average.py](tgym/envs/average.py)的写法
 
 - 定义action
 - 定义observation
