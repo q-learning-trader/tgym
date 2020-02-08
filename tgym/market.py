@@ -34,8 +34,23 @@ class Market:
         self.codes = codes
         self.indexs = indexs
         self.data_dir = data_dir
+        self.load_codes_history()
+        self.load_indexs_history()
+        # hfq数据: 去除不复权数据(9列) 和复权因子(1列): 10, 从第11列开始是后复权数据
+        self.equity_hfq_info_start_index = 10
+        self.init_market_info()
+        self.init_size_info()
 
-        self.init_codes_history()
+    def get_info_size(self, info_name):
+        date = self.open_dates[0]
+        return len(self.market_info[date][info_name])
+
+    def init_size_info(self):
+        """
+        初始化数据的size
+        """
+        self.equity_hfq_info_size = self.get_info_size("equities_hfq_info")
+        self.indexs_info_size = self.get_info_size("indexs_info")
 
     def get_code_history(self, code, adj=None):
         return ts.pro_bar(
@@ -43,6 +58,20 @@ class Market:
             start_date=self.start, end_date=self.end)
 
     def load_codes_history(self):
+        """
+        self.codes_history: dict
+        每条记录由两部分数据组成: 复权因子(1列), 不复权数据(9列), 后复权数据(9列)
+            复权因子: adj_factor(1列)
+            不复权OHLCV, ... (9列)
+            后复权OHLCV, ... (9列)
+
+        self.codes_history[code].columns的值为:
+        [u'adj_factor', u'open', u'high', u'low', u'close', u'pre_close',
+        u'change', u'pct_chg', u'vol', u'amount', u'open_hfq', u'high_hfq',
+        u'low_hfq', u'close_hfq', u'pre_close_hfq', u'change_hfq',
+        u'pct_chg_hfq', u'vol_hfq', u'amount_hfq']
+        """
+
         self.codes_history = {}
         for code in self.codes:
             dir = os.path.join(self.data_dir, code)
@@ -51,7 +80,11 @@ class Market:
             data_path = os.path.join(dir,
                                      self.start + "-" + self.end + ".csv")
             if os.path.exists(data_path):
-                self.codes_history[code] = pd.read_csv(data_path)
+                df = pd.read_csv(data_path)
+                df = df.set_index("trade_date")
+                df.index = df.index.astype(str, copy=False)
+                self.codes_history[code] = df
+
             else:
                 # 不复权
                 df_bfq = self.get_code_history(code, adj=None)
@@ -69,21 +102,30 @@ class Market:
                 df["adj_factor"] = df["close_hfq"] / df["close"]
                 df = df.sort_values(by="trade_date", ascending=True)
                 df = df.set_index("trade_date")
+                df.index = df.index.astype(str, copy=False)
                 df.to_csv(data_path)
                 self.codes_history[code] = df
 
     def load_indexs_history(self):
         self.indexs_history = {}
+        # 默认加载: 000001.SH(上证指数), 399001.SZ(深城证指)
+        indexs = ["000001.SH", "399001.SZ"]
         for code in self.indexs:
+            if code not in indexs:
+                indexs.append(code)
+
+        for code in indexs:
             dir = os.path.join(self.data_dir, "indexs", code)
             if not os.path.exists(dir):
                 os.makedirs(dir)
             data_path = os.path.join(dir,
                                      self.start + "-" + self.end + ".csv")
             if os.path.exists(data_path):
-                self.indexs_history[code] = pd.read_csv(data_path)
+                df = pd.read_csv(data_path)
+                df = df.set_index("trade_date")
+                df.index = df.index.astype(str, copy=False)
+                self.indexs_history[code] = df
             else:
-                # 不复权
                 pro = ts.pro_api()
                 df = pro.index_daily(ts_code=code,
                                      start_date=self.start,
@@ -91,55 +133,93 @@ class Market:
                 df = df.drop(columns=["ts_code"], axis=1)
                 df = df.sort_values(by="trade_date", ascending=True)
                 df = df.set_index("trade_date")
+                df.index = df.index.astype(str, copy=False)
                 df.to_csv(data_path)
                 self.indexs_history[code] = df
 
-    def init_codes_history(self):
-        """
-        self.codes_history: dict
-        每条记录由两部分数据组成: 股票数据，指数数据
-        股票数据包含:
-            复权因子: adj_factor
-            不复权OHLCV, ...
-            后复权OHLCV, ...
-        指数数据:
-            指数1 OHLCV, ...
-            指数2 OHLCV, ...
-        例如: 当codes=["000001.SZ"], indexs=["000001.SH", "399001.SZ"] 时
-        self.codes_history[].columns的值为:
-        [u'adj_factor', u'open', u'high', u'low', u'close', u'pre_close',
-        u'change', u'pct_chg', u'vol', u'amount', u'open_hfq', u'high_hfq',
-        u'low_hfq', u'close_hfq', u'pre_close_hfq', u'change_hfq',
-        u'pct_chg_hfq', u'vol_hfq', u'amount_hfq', u'close_1', u'open_1',
-        u'high_1', u'low_1', u'pre_close_1', u'change_1', u'pct_chg_1',
-        u'vol_1', u'amount_1', u'close_2', u'open_2', u'high_2', u'low_2',
-        u'pre_close_2', u'change_2', u'pct_chg_2', u'vol_2', u'amount_2']
-        """
-        self.load_codes_history()
-        self.load_indexs_history()
+    def set_pre_info(self):
+        date = self.open_dates[0]
+        self.equities_pre_hfq_info = {}
+        self.equities_pre_bfq_info = {}
         for code in self.codes:
-            if len(self.indexs) > 0:
-                for i in range(len(self.indexs)):
-                    index = self.indexs[i]
-                    self.codes_history[code] = self.codes_history[code].merge(
-                        self.indexs_history[index],
-                        left_index=True, right_index=True,
-                        sort=True,
-                        suffixes=('', '_%d' % (i + 1))
-                    )
-                    drop_column = "trade_date_%d" % (i + 1)
-                    if drop_column in self.codes_history[code].columns:
-                        self.codes_history[code] = self.codes_history[
-                            code].drop(columns=[drop_column], axis=1)
+            # 如果第一天就停牌，这里会出错，建议另外选择一天开始回测
+            try:
+                data = self.codes_history[code].loc[date].tolist()
+                bfq_data = data[1: self.equity_hfq_info_start_index]
+                # 开盘时， open=1
+                bfq_data.append(1)
+                self.equities_pre_bfq_info[code] = bfq_data
+                # 后复权
+                hfq_data = data[self.equity_hfq_info_start_index:]
+                # 开盘时， open=1
+                hfq_data.append(1)
+                self.equities_pre_hfq_info[code] = hfq_data
+            except Exception as e:
+                print("%s, %s停牌，建议另外选择一天开始回测" % (code, date))
+                print(e)
+                exit()
 
-            self.codes_history[code] = self.codes_history[
-                code].sort_values(by="trade_date", ascending=True)
-            if "trade_date" in self.codes_history[code].columns:
-                self.codes_history[code] = self.codes_history[
-                    code].set_index("trade_date")
-            # index int64 -> str
-            self.codes_history[code].index = self.codes_history[
-                code].index.astype(str, copy=False)
+    def get_equities_bfq_info(self, date):
+        info = []
+        for code in self.codes:
+            data = None
+            if date in self.codes_history[code].index:
+                data = self.codes_history[code].loc[date].tolist()
+                data = data[1: self.equity_hfq_info_start_index]
+                # 开盘时， open=1
+                data.append(1)
+            else:
+                # 如果停牌则使用前一开盘日信息
+                data = self.equities_pre_bfq_info[code]
+                data[-1] = 0
+            # 更新前一开盘日信息
+            self.equities_pre_bfq_info[code] = data
+            info.extend(data)
+        return info
+
+    def get_equities_hfq_info(self, date):
+        info = []
+        for code in self.codes:
+            data = None
+            if date in self.codes_history[code].index:
+                data = self.codes_history[code].loc[date].tolist()
+                data = data[self.equity_hfq_info_start_index:]
+                # 开盘时， open=1
+                data.append(1)
+            else:
+                # 如果停牌则使用前一开盘日信息
+                data = self.equities_pre_hfq_info[code]
+                data[-1] = 0
+            # 更新前一开盘日信息
+            self.equities_pre_hfq_info[code] = data
+            info.extend(data)
+        return info
+
+    def get_indexs_info(self, date):
+        info = []
+        for code in self.indexs:
+            data = self.indexs_history[code].loc[date].tolist()
+            info.extend(data)
+        return info
+
+    def init_market_info(self):
+        """
+        以日期为key, 将市场相关信息组织在一个dict中:
+            equities_hfq_info: 合并之后的个股信息, 如果某支股停牌，则使用它前一开盘日信息
+            indexs_info: 合并之后指数信息
+        Note(wen): 添加其他市场相关信息，都放在这里
+        """
+        self.open_dates = self.indexs_history["000001.SH"].index.tolist()
+        self.open_dates.sort()
+        self.set_pre_info()
+        self.market_info = {}
+        for date in self.open_dates:
+            self.market_info[date] = {}
+            self.market_info[date]["equities_bfq_info"] = \
+                self.get_equities_bfq_info(date)
+            self.market_info[date]["equities_hfq_info"] = \
+                self.get_equities_hfq_info(date)
+            self.market_info[date]["indexs_info"] = self.get_indexs_info(date)
 
     def is_suspended(self, code='', datestr=''):
         # 是否停牌，是：返回 True, 否：返回 False

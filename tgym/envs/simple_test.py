@@ -25,10 +25,9 @@ class TestSimple(unittest.TestCase):
         self.start = "20190101"
         self.end = "20200101"
         self.codes = ["000001.SZ"]
-        # self.indexs = ["000001.SH", "399001.SZ"]
-        self.indexs = []
-        self.show_plot = False
+        self.indexs = ["000001.SH", "399001.SZ"]
         # self.indexs = []
+        self.show_plot = False
         self.data_dir = "/tmp/tgym"
         self.m = Market(
             ts_token=ts_token,
@@ -79,7 +78,7 @@ class TestSimple(unittest.TestCase):
             # buy and hold, 持仓不动
             action = self.env.get_random_action()
             _, _, done, _, _ = self.env.step(action, only_update=False)
-        self.assertEqual(25234.7, round(self.env.portfolio_value, 1))
+        self.assertEqual(25217.5, round(self.env.portfolio_value, 1))
         if self.show_plot:
             self.plot_portfolio_value("random_action")
 

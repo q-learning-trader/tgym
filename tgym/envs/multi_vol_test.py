@@ -58,8 +58,7 @@ class TestMultiVol(unittest.TestCase):
         plt.show()
 
     def test_get_open_dates(self):
-        actual = self.env.get_open_dates()
-        self.assertEqual(244, len(actual))
+        self.assertEqual(244, len(self.env.dates))
 
     def test_buy_and_hold(self):
         # 20190116,  收盘时 000001.SZ 2.38%, 000002.SZ 1.03%, 平均分仓买进
