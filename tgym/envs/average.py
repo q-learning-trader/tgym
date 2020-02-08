@@ -183,6 +183,7 @@ class AverageEnv(BaseEnv):
         self.do_action(action, pre_portfolio_value, only_update)
         self.update_portfolio()
         self.update_value_percent()
+        self.update_reward()
         self.obs = self._next()
         self.info = {
             "orders": self.info["orders"],

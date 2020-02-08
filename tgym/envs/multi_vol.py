@@ -5,7 +5,6 @@ import numpy as np
 
 from tgym.envs.base import BaseEnv
 from tgym.logger import logger
-from tgym.portfolio import Portfolio
 
 
 class MultiVolEnv(BaseEnv):
@@ -189,6 +188,7 @@ class MultiVolEnv(BaseEnv):
         self.do_action(action, pre_portfolio_value, only_update)
         self.update_portfolio()
         self.update_value_percent()
+        self.update_reward()
         self.obs = self._next()
         self.info = {
             "orders": self.info["orders"],
