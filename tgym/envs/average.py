@@ -109,8 +109,6 @@ class AverageEnv(BaseEnv):
         return highs, lows, closes
 
     def update_reward(self, sell_prices, buy_prices):
-        # NOTE(wen): 如果今天盈利，则reward=1, 否则reward=-1
-        # reward决定算法的搜索方向, 建议设置为一个连续可导函数
         if self.reward_fn_name in ["daily_return", "simple"]:
             self.reward = self.reward_fn(self.daily_return)
         else:
