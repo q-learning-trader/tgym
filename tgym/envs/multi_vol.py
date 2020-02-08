@@ -32,7 +32,7 @@ class MultiVolEnv(BaseEnv):
                                           used_infos)
         self.action_space = 4 * self.n
 
-        self.portfolio_info_size = 2
+        self.portfolio_info_size = 2 * self.n
         self.input_size = self.market_info_size + self.portfolio_info_size
 
     def get_init_portfolio_obs(self):

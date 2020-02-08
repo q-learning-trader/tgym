@@ -4,8 +4,8 @@ import random
 import numpy as np
 
 from tgym.envs.base import BaseEnv
+from tgym.envs.reward import get_reward_func
 from tgym.logger import logger
-from tgym.portfolio import Portfolio
 
 
 class AverageEnv(BaseEnv):
@@ -23,7 +23,8 @@ class AverageEnv(BaseEnv):
     """
 
     def __init__(self, market=None, investment=100000.0, look_back_days=10,
-                 used_infos=["equities_hfq_info", "indexs_info"]):
+                 used_infos=["equities_hfq_info", "indexs_info"],
+                 reward_fn="daily_return"):
         """
         investment: 初始资金
         look_back_days: 向前取数据的天数
@@ -33,8 +34,10 @@ class AverageEnv(BaseEnv):
         self.avg_percent = 1.0 / self.n
         self.action_space = 2 * self.n
         self.start = market.start
-        self.portfolio_info_size = 2
+        self.portfolio_info_size = 2 * self.n
         self.input_size = self.market_info_size + self.portfolio_info_size
+        self.reward_fn = get_reward_func(name=reward_fn)
+        self.reward_fn_name = reward_fn
 
     def get_init_portfolio_obs(self):
         # 初始持仓 状态
@@ -89,19 +92,35 @@ class AverageEnv(BaseEnv):
         self.portfolio_value = self.market_value + self.cash
         self.portfolio_value_logs.append(self.portfolio_value)
 
-    def update_reward(self):
+    def get_hlc_prices(self):
+        date = self.current_date
+        highs, lows, closes = [], [], []
+        for i in range(self.n):
+            code = self.codes[i]
+            if date in self.market.codes_history[code].index:
+                highs.append(self.market.codes_history[code].loc[date, "high"])
+                lows.append(self.market.codes_history[code].loc[date, "low"])
+                closes.append(self.market.codes_history[code].loc[date, "close"])
+            else:
+                # 停牌时
+                highs.appen(0)
+                lows.appen(0)
+                closes.appen(0)
+        return highs, lows, closes
+
+    def update_reward(self, sell_prices, buy_prices):
         # NOTE(wen): 如果今天盈利，则reward=1, 否则reward=-1
         # reward决定算法的搜索方向, 建议设置为一个连续可导函数
-        if self.daily_pnl <= 0:
-            self.reward = -1
+        if self.reward_fn_name in ["daily_return", "simple"]:
+            self.reward = self.reward_fn(self.daily_return)
         else:
-            self.reward = 1
+            highs, lows, closes = self.get_hlc_prices()
+            self.reward = self.reward_fn(
+                self.daily_return, highs, lows, closes,
+                sell_prices, buy_prices)
         # 每一只股的reward
         for i in range(self.n):
-            if self.portfolios[i].daily_pnl <= 0:
-                self.rewards[i] = -1
-            else:
-                self.rewards[i] = 1
+            self.rewards[i] = self.reward
 
     def update_value_percent(self):
         if self.portfolio_value == 0:
@@ -118,12 +137,14 @@ class AverageEnv(BaseEnv):
             code = self.codes[i]
             divide_rate = self.market.get_divide_rate(code, self.current_date)
             self.portfolios[i].update_before_trade(divide_rate)
+        sell_prices, buy_prices = [], []
         if not only_update:
             # 卖出
             for i in range(self.n):
                 code = self.codes[i]
                 act_i = action[2 * i: 2 * (i + 1)]
                 sell_price, _ = self.get_action_price(act_i, code)
+                sell_prices.append(sell_price)
 
                 sell_cash_change, ok = self.sell(i, sell_price, 0)
                 cash_change += sell_cash_change
@@ -132,6 +153,7 @@ class AverageEnv(BaseEnv):
                 code = self.codes[i]
                 act_i = action[2 * i: 2 * (i + 1)]
                 _, buy_price = self.get_action_price(act_i, code)
+                buy_prices.append(buy_price)
 
                 buy_cash_change, ok = self.buy(i, buy_price, self.avg_percent)
                 cash_change += buy_cash_change
@@ -147,6 +169,7 @@ class AverageEnv(BaseEnv):
                 close_price=close_price,
                 cash_change=cash_change,
                 pre_portfolio_value=pre_portfolio_value)
+        return sell_prices, buy_prices
 
     def _next(self):
         market_info = self.get_market_info(self.current_date)
@@ -180,10 +203,12 @@ class AverageEnv(BaseEnv):
             self.done = True
 
         pre_portfolio_value = self.portfolio_value
-        self.do_action(action, pre_portfolio_value, only_update)
+        sell_prices, buy_prices = self.do_action(action,
+                                                 pre_portfolio_value,
+                                                 only_update)
         self.update_portfolio()
         self.update_value_percent()
-        self.update_reward()
+        self.update_reward(sell_prices, buy_prices)
         self.obs = self._next()
         self.info = {
             "orders": self.info["orders"],
