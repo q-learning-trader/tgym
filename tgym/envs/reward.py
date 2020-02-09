@@ -68,6 +68,24 @@ def daily_return_add_price_bound(daily_return, highs, lows,
     return reward
 
 
+def daily_return_with_chl_penalty(daily_return, highs, lows,
+                                  closes, sell_prices, buy_prices):
+    reward = daily_return_add_price_bound(daily_return, highs, lows, closes,
+                                          sell_prices, buy_prices)
+    # 增加相对于收盘价的惩罚
+    close_error_sum = 0
+    n = len(highs)
+    for i in range(n):
+        if sell_prices[i] < closes[i]:
+            close_error = (closes[i] - sell_prices[i]) * 10 / closes[i]
+            close_error_sum += close_error ** 2
+        if buy_prices[i] > closes[i]:
+            close_error = (buy_prices[i] - closes[i]) * 10 / closes[i]
+            close_error_sum += close_error ** 2
+    reward = reward + close_error_sum
+    return reward
+
+
 def get_reward_func(name="simple"):
     if name == "simple":
         return simple
@@ -77,6 +95,8 @@ def get_reward_func(name="simple"):
         return daily_pnl_add_count_rate
     if name == "daily_return_add_price_bound":
         return daily_return_add_price_bound
+    if name == "daily_return_with_chl_penalty":
+        return daily_return_with_chl_penalty
 
 
 def main():
