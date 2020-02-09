@@ -1,4 +1,5 @@
 # -*- coding:utf-8 -*-
+from tgym.logger import logger
 
 
 def simple(daily_return, *args):
@@ -12,8 +13,8 @@ def daily_return(daily_return, *args):
     return daily_return
 
 
-def daily_pnl_add_count_rate(daily_return, highs, lows,
-                             closes, sell_prices, buy_prices):
+def daily_return_add_count_rate(daily_return, highs, lows,
+                                closes, sell_prices, buy_prices):
     fail, success, profit_count, loss_count = 0, 0, 0
     for i in range(len(highs)):
         # 买
@@ -87,12 +88,13 @@ def daily_return_with_chl_penalty(daily_return, highs, lows,
 
 
 def get_reward_func(name="simple"):
+    logger.info("use reward function: %s" % name)
     if name == "simple":
         return simple
     if name == "daily_return":
         return daily_return
-    if name == "daily_pnl_add_count_rate":
-        return daily_pnl_add_count_rate
+    if name == "daily_return_add_count_rate":
+        return daily_return_add_count_rate
     if name == "daily_return_add_price_bound":
         return daily_return_add_price_bound
     if name == "daily_return_with_chl_penalty":

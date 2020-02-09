@@ -42,17 +42,25 @@ export TUSHARE_TOKEN=YOUR_TOKEN
 
 [Examples](tgym/envs)
 
-场景                   | 实现           | action                                           | observation           | reward       | 使用例子
--------------------- | ------------ | ------------------------------------------------ | --------------------- | ------------ | -----------------
-单支股票, 全仓操作, 每日先卖再买   | simple.py    | [v_sell, v_buy]                                  | 股票信息(后复权)+指数信息+部分账户信息 | 盈利=1,否则=-1   | simple_test.py
-多支股票平均分仓, 每日先卖再买     | average.py   | [v_sell, v_buy] * n                              | 股票信息(后复权)+指数信息+部分账户信息 | daily_return | average_test.py
-多支股票, 支持仓位控制, 每日先卖再买 | multi_vol.py | [v_sell, v_sell_target, v_buy, v_buy_target] * n | 股票信息(后复权)+指数信息+部分账户信息 | 盈利=1,否则=-1   | multi_vol_test.py
+场景                   | 实现           | action                                           | observation | reward | 使用例子
+-------------------- | ------------ | ------------------------------------------------ | ----------- | ------ | -----------------
+单支股票, 全仓操作, 每日先卖再买   | simple.py    | [v_sell, v_buy]                                  | 市场信息+部分账户信息 | 可参数选择  | simple_test.py
+多支股票平均分仓, 每日先卖再买     | average.py   | [v_sell, v_buy] * n                              | 市场信息+部分账户信息 | 可参数选择  | average_test.py
+多支股票, 支持仓位控制, 每日先卖再买 | multi_vol.py | [v_sell, v_sell_target, v_buy, v_buy_target] * n | 市场信息+部分账户信息 | 可参数选择  | multi_vol_test.py
 
 场景:
 
 - [x] 单支股票, 全仓操作
 - [x] 多支股票, 均匀分仓操作
 - [x] 多支股票，支持仓位控制
+
+reward: [实现](tgym/envs/reward.py)
+
+- [x] simple: 盈利=1,否则=-1
+- [x] daily_return: 每日的收益率
+- [x] daily_return_add_count_rate: 收益率 + 成交统计信息
+- [x] daily_return_add_price_bound: 收益率 - 最高最低价与买卖价差MSE
+- [x] daily_return_with_chl_penalty: 收益率 - [close,high,low]与买卖价格相应惩罚
 
 ## 扩展env scenario
 
