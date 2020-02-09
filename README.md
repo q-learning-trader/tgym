@@ -62,6 +62,7 @@ export TUSHARE_TOKEN=YOUR_TOKEN
 - 定义observation
 - 定义reward
 
-## [Bazel build](https://bazel.build/)
+## TODO List(欢迎一起完善)
 
-TODO
+- [ ] [Bazel build](https://bazel.build/)
+- [ ] 更全面的测试用例

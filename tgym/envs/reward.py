@@ -44,6 +44,30 @@ def daily_pnl_add_count_rate(daily_return, highs, lows,
     return reward
 
 
+def mean_squared_error(a, b):
+    v = 0.0
+    n = len(a)
+    for i in range(n):
+        v += (10.0 * (1 - b[i] / a[i])) ** 2
+    return v / n
+
+
+def daily_return_add_price_bound(daily_return, highs, lows,
+                                 closes, sell_prices, buy_prices):
+    reward = daily_return
+    n = len(highs)
+    # 如果出现买价>卖价 增加一个较大的惩罚
+    for i in range(n):
+        if sell_prices[i] < buy_prices[i]:
+            reward -= 1.0
+    # 计算 bound
+    sell_error = mean_squared_error(highs, sell_prices)
+    buy_error = mean_squared_error(lows, buy_prices)
+
+    reward = reward - sell_error - buy_error
+    return reward
+
+
 def get_reward_func(name="simple"):
     if name == "simple":
         return simple
@@ -51,6 +75,8 @@ def get_reward_func(name="simple"):
         return daily_return
     if name == "daily_pnl_add_count_rate":
         return daily_pnl_add_count_rate
+    if name == "daily_return_add_price_bound":
+        return daily_return_add_price_bound
 
 
 def main():
