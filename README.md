@@ -66,3 +66,7 @@ export TUSHARE_TOKEN=YOUR_TOKEN
 
 - [ ] [Bazel build](https://bazel.build/)
 - [ ] 更全面的测试用例
+- 场景增加
+
+  - [ ] 增加更多, 更有效的reward函数
+  - [ ] 增加observation中信息(因子挖掘)
