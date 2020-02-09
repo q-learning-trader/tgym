@@ -1,14 +1,18 @@
 # -*- coding:utf-8 -*-
+import random
+
 import gym
 import numpy as np
 
+from tgym.envs.reward import get_reward_func
 from tgym.logger import logger
 from tgym.portfolio import Portfolio
 
 
 class BaseEnv(gym.Env):
     def __init__(self, market=None, investment=100000.0, look_back_days=10,
-                 used_infos=["equities_hfq_info", "indexs_info"]):
+                 used_infos=["equities_hfq_info", "indexs_info"],
+                 reward_fn="daily_return_add_price_bound"):
         """
         investment: 初始资金
         look_back_days: 向前取数据的天数
@@ -28,6 +32,8 @@ class BaseEnv(gym.Env):
         self.dates = market.open_dates
         # 记录一个回合的收益序列
         self.returns = []
+        self.reward_fn = get_reward_func(name=reward_fn)
+        self.reward_fn_name = reward_fn
 
     def get_market_info_size(self):
         size = 0
@@ -44,6 +50,35 @@ class BaseEnv(gym.Env):
             data = self.market.market_info[date][info_name]
             info.extend(data)
         return np.array(info)
+
+    def get_hlc_prices(self):
+        date = self.current_date
+        highs, lows, closes = [], [], []
+        for i in range(self.n):
+            code = self.codes[i]
+            if date in self.market.codes_history[code].index:
+                highs.append(self.market.codes_history[code].loc[date, "high"])
+                lows.append(self.market.codes_history[code].loc[date, "low"])
+                closes.append(self.market.codes_history[code].loc[date,
+                                                                  "close"])
+            else:
+                # 停牌时
+                highs.appen(0)
+                lows.appen(0)
+                closes.appen(0)
+        return highs, lows, closes
+
+    def update_reward(self, sell_prices, buy_prices):
+        if self.reward_fn_name in ["daily_return", "simple"]:
+            self.reward = self.reward_fn(self.daily_return)
+        else:
+            highs, lows, closes = self.get_hlc_prices()
+            self.reward = self.reward_fn(
+                self.daily_return, highs, lows, closes,
+                sell_prices, buy_prices)
+        # 每一只股的reward与总的reward一致
+        for i in range(self.n):
+            self.rewards[i] = self.reward
 
     def sell(self, id, price, target_pct):
         # id: code id
@@ -95,6 +130,38 @@ class BaseEnv(gym.Env):
             return cash_change, ok
         return 0, ok
 
+    def update_portfolio(self):
+        pre_portfolio_value = self.portfolio_value
+        self.market_value = 0
+        self.daily_pnl = 0
+        self.pnl = 0
+        self.transaction_cost = 0
+        self.all_transaction_cost = 0
+        for p in self.portfolios:
+            self.market_value += p.market_value
+            self.daily_pnl += p.daily_pnl
+            self.pnl += p.pnl
+            self.transaction_cost += p.transaction_cost
+            self.all_transaction_cost += p.all_transaction_cost
+        self.total_pnl += self.pnl
+
+        # 当日收益率 更新
+        if pre_portfolio_value == 0:
+            self.daily_return = 0
+        else:
+            self.daily_return = self.daily_pnl / pre_portfolio_value
+        # update portfolio_value
+        self.portfolio_value = self.market_value + self.cash
+        self.portfolio_value_logs.append(self.portfolio_value)
+
+    def update_value_percent(self):
+        if self.portfolio_value == 0:
+            self.value_percent = 0.0
+        else:
+            self.value_percent = self.market_value / self.portfolio_value
+        for i in range(self.n):
+            self.portfolios[i].update_value_percent(self.portfolio_value)
+
     def get_init_obs():
         raise NotImplementedError
 
@@ -126,3 +193,37 @@ class BaseEnv(gym.Env):
         self.obs = self.get_init_obs()
         self.portfolio_value_logs = []
         return self.obs
+
+    def step(self, action, only_update=False):
+        """
+        only_update为True时，表示buy_and_hold策略，可作为一种baseline策略
+        """
+        self.action = action
+        self.info = {"orders": []}
+        logger.debug("=" * 50 + "%s" % self.current_date + "=" * 50)
+        logger.debug("current_time_id: %d, portfolio: %.1f" %
+                     (self.current_time_id, self.portfolio_value))
+        logger.debug("step action: %s" % str(action))
+
+        # 到最后一天
+        if self.current_date == self.dates[-1]:
+            self.done = True
+
+        pre_portfolio_value = self.portfolio_value
+        sell_prices, buy_prices = self.do_action(action,
+                                                 pre_portfolio_value,
+                                                 only_update)
+        self.update_portfolio()
+        self.update_value_percent()
+        self.update_reward(sell_prices, buy_prices)
+        self.obs = self._next()
+        self.info = {
+            "orders": self.info["orders"],
+            "current_date": self.current_date,
+            "portfolio_value": round(self.portfolio_value / self.investment, 3),
+            "daily_pnl": round(self.daily_pnl, 1),
+            "reward": self.reward}
+        return self.obs, self.reward, self.done, self.info, self.rewards
+
+    def get_random_action(self):
+        return [random.uniform(-1, 1) for i in range(self.action_space)]
