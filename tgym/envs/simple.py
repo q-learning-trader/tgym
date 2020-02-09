@@ -1,7 +1,5 @@
 # -*- coding:utf-8 -*-
 
-import random
-
 import numpy as np
 
 from tgym.envs.base import BaseEnv
@@ -67,45 +65,16 @@ class SimpleEnv(BaseEnv):
         buy_price = round(pre_close * (1 + pct_buy), 2)
         return sell_price, buy_price
 
-    def update_portfolio(self):
-        pre_portfolio_value = self.portfolio_value
-        p = self.portfolio
-        self.market_value = p.market_value
-        self.daily_pnl = p.daily_pnl
-        self.pnl = p.pnl
-        self.transaction_cost = p.transaction_cost
-        self.all_transaction_cost = p.all_transaction_cost
-        self.total_pnl += p.pnl
-
-        # 当日收益率 更新
-        if pre_portfolio_value == 0:
-            self.daily_return = 0
-        else:
-            self.daily_return = self.daily_pnl / pre_portfolio_value
-        # update portfolio_value
-        self.portfolio_value = self.market_value + self.cash
-        self.portfolio_value_logs.append(self.portfolio_value)
-
-    def update_reward(self):
-        # NOTE(wen): 如果今天盈利，则reward=1, 否则reward=-1
-        # reward决定算法的搜索方向, 建议设置为一个连续可导函数
-        if self.daily_pnl <= 0:
-            self.reward = -1
-        else:
-            self.reward = 1
-
-    def update_value_percent(self):
-        if self.portfolio_value == 0:
-            self.value_percent = 0.0
-        else:
-            self.value_percent = self.market_value / self.portfolio_value
-
     def do_action(self, action, pre_portfolio_value, only_update):
         sell_price, buy_price = self.get_action_price(action)
+        sell_prices, buy_prices = [sell_price], [buy_price]
+        if only_update:
+            sell_prices, buy_prices = [0] * self.n, [0] * self.n
         divide_rate = self.market.get_divide_rate(self.code, self.current_date)
         logger.debug("divide_rate: %.4f" % divide_rate)
         self.portfolio.update_before_trade(divide_rate)
         cash_change = 0
+
         if not only_update:
             # 全仓卖出
             sell_cash_change, ok = self.sell(0, sell_price, 0.0)
@@ -120,6 +89,7 @@ class SimpleEnv(BaseEnv):
             close_price=close_price,
             cash_change=cash_change,
             pre_portfolio_value=pre_portfolio_value)
+        return sell_prices, buy_prices
 
     def _next(self):
         market_info = self.get_market_info(self.current_date)
@@ -133,35 +103,3 @@ class SimpleEnv(BaseEnv):
             self.current_date = self.dates[self.current_time_id]
         self.pre_cash = self.cash
         return obs
-
-    def step(self, action, only_update=False):
-        """
-        only_update为True时，表示buy_and_hold策略，可用于baseline策略
-        """
-        self.action = action
-        self.info = {"orders": []}
-        logger.debug("=" * 50 + "%s" % self.current_date + "=" * 50)
-        logger.debug("current_time_id: %d, portfolio: %.1f" %
-                     (self.current_time_id, self.portfolio_value))
-        logger.debug("step actions: %s" % str(action))
-
-        # 到最后一天
-        if self.current_date == self.dates[-1]:
-            self.done = True
-
-        pre_portfolio_value = self.portfolio_value
-        self.do_action(action, pre_portfolio_value, only_update)
-        self.update_portfolio()
-        self.update_value_percent()
-        self.update_reward()
-        self.obs = self._next()
-        self.info = {
-            "orders": self.info["orders"],
-            "current_date": self.current_date,
-            "portfolio_value": round(self.portfolio_value, 1),
-            "daily_pnl": round(self.daily_pnl, 1),
-            "reward": self.reward}
-        return self.obs, self.reward, self.done, self.info, [self.reward]
-
-    def get_random_action(self):
-        return [random.uniform(-1, 1), random.uniform(-1, 1)]
